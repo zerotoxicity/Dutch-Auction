@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_frontend/controller.dart';
-import 'package:get/get_state_manager/get_state_manager.dart';
-import 'package:get/route_manager.dart';
+import 'package:flutter_frontend/web3_controller.dart';
+import 'package:flutter_frontend/home/home_screen.dart';
+import 'package:flutter_frontend/unknown_screen.dart';
+import 'package:get/get.dart';
 
 void main() {
   runApp(const MyApp());
@@ -14,11 +15,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      title: 'Ketchup Auction',
+      theme: ThemeData(primarySwatch: Colors.blue),
       home: LoginPage(),
+      unknownRoute:
+          GetPage(name: "/unknown", page: () => const UnknownScreen()),
     );
   }
 }
@@ -26,26 +27,35 @@ class MyApp extends StatelessWidget {
 class LoginPage extends StatelessWidget {
   LoginPage({Key? key}) : super(key: key);
 
-  final AuthController c = AuthController();
+  final Web3Controller c = Get.put(Web3Controller());
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey,
-      appBar: AppBar(),
+      appBar: AppBar(
+        actions: [
+          ElevatedButton(
+              onPressed: () {
+                c.connect().then((_) async {
+                  const GetSnackBar(
+                    title: "Authentication",
+                    message: "Login successfully!",
+                    duration: Duration(seconds: 2),
+                  ).show();
+                  await Get.offAll(HomeScreen());
+                });
+              },
+              child: Obx(
+                () => Text(c.isConnected.value ? "Disconnect" : "Connect"),
+              ))
+        ],
+      ),
       body: Center(
         child: Column(children: [
           Obx(() => SelectableText(
               c.isConnected.value ? c.currentAddress.value : "Not connected")),
           const SizedBox(height: 10),
-          ElevatedButton(
-              onPressed: () async {
-                print("Button pressed");
-                await c.connect();
-              },
-              child: Obx(
-                () => Text(c.isConnected.value ? "Disconnect" : "Connect"),
-              ))
         ]),
       ),
     );

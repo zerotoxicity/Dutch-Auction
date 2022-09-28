@@ -1,0 +1,4 @@
+enum AuctionState {
+    ONGOING,
+    CLOSED
+}
