@@ -31,6 +31,7 @@ class Web3Controller extends GetxController {
       RxBool(currentChain.value == operatingChain.value);
   RxBool get isConnected =>
       RxBool(isEnabled.value && currentAddress.isNotEmpty);
+  Web3Provider? get getProvider => provider;
 
   RxString currentAddress = RxString("");
   RxInt currentChain = RxInt(-1);

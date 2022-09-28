@@ -8,8 +8,8 @@ import '../helper.dart';
 // Shows the current ICO activities, login required
 class HomeScreen extends StatelessWidget {
   HomeScreen({Key? key}) : super(key: key);
-  final controller = HomeController();
   final Web3Controller web3Controller = Get.find<Web3Controller>();
+  final HomeController homeController = Get.put(HomeController());
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -25,21 +25,35 @@ class HomeScreen extends StatelessWidget {
                 if (snapshot.hasData) {
                   print("result: ${snapshot.data}");
                   return Center(
-                      child: Text("Eth: ${bigIntToInt(snapshot.data!)}"));
+                      child: Text("Eth: ${bigIntToString(snapshot.data!)}"));
                 }
                 return Container();
               }),
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () {
-              print("Sign out");
-            },
+            onPressed: () {},
           )
         ],
       ),
       body: Center(
           child: Column(
-        children: [],
+        children: [
+          // FutureBuilder<String>(
+          //     future: homeController.aggregatorV3Interface.fetchBTCToUSD(),
+          //     builder: (context, snapshot) {
+          //       print("snapshot.data = ${snapshot.data}");
+          //       if (snapshot.connectionState == ConnectionState.active) {
+          //         return const CircularProgressIndicator.adaptive();
+          //       }
+          //       if (snapshot.hasData) {
+          //         return Text("BTC/USD: ${snapshot.data!}");
+          //       }
+          //       return const Text("BTC/USD: not available");
+          //     }),
+          Obx(() => Text(homeController.btcToUSD.value.isNotEmpty
+              ? "BTC/USD: ${homeController.btcToUSD.value}"
+              : "Not available")),
+        ],
       )),
     );
   }
