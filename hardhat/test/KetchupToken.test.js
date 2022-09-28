@@ -4,7 +4,7 @@ const { expect } = require("chai");
 describe("💰 Ketchup Token", function () {
   let ketchupContract;
   let deployer;
-  let accounts;
+  let accounts; //Accounts[1] is selected as mock Auction Contract address
 
   beforeEach(async function () {
     accounts = await ethers.getSigners();
