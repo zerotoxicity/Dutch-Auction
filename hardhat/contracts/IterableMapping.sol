@@ -7,19 +7,19 @@ library IterableMapping {
         mapping(address => uint) indexOf;
     }
 
-    function get(Map storage map, address key) public view returns (uint) {
+    function get(Map storage map, address key) internal view returns (uint) {
         return map.values[key];
     }
 
     function getKeyAtIndex(Map storage map, uint index)
-        public
+        internal
         view
         returns (address)
     {
         return map.keys[index];
     }
 
-    function size(Map storage map) public view returns (uint) {
+    function size(Map storage map) internal view returns (uint) {
         return map.keys.length;
     }
 
@@ -27,8 +27,8 @@ library IterableMapping {
         Map storage map,
         address key,
         uint val
-    ) public {
-        if (map.values[key] > 0) {
+    ) internal {
+        if (_checkIfKeyExist(map, key)) {
             map.values[key] += val;
         } else {
             map.values[key] = val;
@@ -37,7 +37,7 @@ library IterableMapping {
         }
     }
 
-    function remove(Map storage map, address key) public {
+    function remove(Map storage map, address key) internal {
         if (map.values[key] == 0) {
             return;
         }
@@ -53,5 +53,16 @@ library IterableMapping {
 
         map.keys[index] = lastKey;
         map.keys.pop();
+    }
+
+    function _checkIfKeyExist(Map storage map, address key)
+        private
+        view
+        returns (bool)
+    {
+        if (map.keys.length == 0) return false;
+        uint index = map.indexOf[key];
+        if (map.keys[index] == key) return true;
+        return false;
     }
 }

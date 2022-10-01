@@ -27,7 +27,8 @@ contract KetchupTokenV1 is
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function fundAuction() external onlyOwner {
-        _mint(owner(), 1e20);
+        require(totalSupply() < 1e20, "Max supply exceeded");
+        _mint(owner(), 1e19);
     }
 
     /**

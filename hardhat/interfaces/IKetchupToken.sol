@@ -1,7 +1,7 @@
 pragma solidity 0.8.16;
 
 interface IKetchupToken {
-    function burnRemainingToken(uint256 amount) external;
+    function fundAuction() external;
 
-    function decimals() external;
+    function burnRemainingToken(uint256 amount) external;
 }

@@ -8,6 +8,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
+import "hardhat/console.sol";
+
 ///FORMATTED USING SOLIDITY STYLE GUIDE
 
 /**
@@ -16,15 +18,17 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  */
 contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     using IterableMapping for IterableMapping.Map;
-    uint256 constant MULTIPLIER = 1e13;
+
+    //Starting price: 0.1 ETH
     uint256 constant STARTING_PRICE = 1e17;
+    uint256 constant MULTIPLIER = 1e12;
     uint256 constant RESERVED_PRICE = STARTING_PRICE - (20 * 60 * MULTIPLIER);
+    uint256 constant AUCTION_SUPPLY = 1e19;
 
     ///Auction-related variables
-    AuctionState private _currentAuctionState;
     uint256 private _endPrice;
-    uint256 private constant AUCTION_SUPPLY = 1e19;
     uint256 private _auctionStartTime;
+    AuctionState private _currentAuctionState;
 
     ///Address of Ketchup Token
     address private _ketchupToken;
@@ -33,6 +37,8 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     uint256 public _totalBidAmount;
     mapping(address => uint256) private _refunds;
     IterableMapping.Map bidders;
+
+    event ShouldAuctionEnd(bool value);
 
     /**
      * CCheck if the auction is still ongoing.
@@ -54,9 +60,8 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         __UUPSUpgradeable_init();
         __Ownable_init();
         _ketchupToken = ketchupToken;
+        _currentAuctionState = AuctionState.CLOSED;
     }
-
-    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     /**
      * Allow the owner of the Auction contract to start auction
@@ -66,8 +71,30 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             _currentAuctionState == AuctionState.CLOSED,
             "Auction is ongoing."
         );
+        IKetchupToken(_ketchupToken).fundAuction();
         _auctionStartTime = block.timestamp;
         _currentAuctionState = AuctionState.ONGOING;
+        _totalBidAmount = 0;
+        delete bidders.keys;
+    }
+
+    /**
+     * Check if auction should end
+     * If yes, end the auction
+     * @dev Gas cost of ending the auction is passed to the user
+     */
+    function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
+        if (
+            (getSupplyReserved() >= AUCTION_SUPPLY) ||
+            (block.timestamp >= _auctionStartTime + 20 minutes)
+        ) {
+            _endAuction();
+            emit ShouldAuctionEnd(true);
+            return true;
+        }
+
+        emit ShouldAuctionEnd(false);
+        return false;
     }
 
     /**
@@ -80,22 +107,19 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             return _endPrice;
         }
         return (STARTING_PRICE -
-            (block.timestamp - _auctionStartTime) *
-            MULTIPLIER);
+            ((block.timestamp - _auctionStartTime) * MULTIPLIER));
+    }
+
+    function getAuctionState() public view returns (AuctionState) {
+        return _currentAuctionState;
     }
 
     /**
      * Get current number of tokens reserved by bidders
      */
     function getSupplyReserved() public view returns (uint256) {
-        return ((_totalBidAmount * 1e18) / getTokenPrice());
-    }
-
-    /**
-     * Get total amount bidded in current auction
-     */
-    function getTotalBidAmount() external view returns (uint256) {
-        return _totalBidAmount;
+        if (_totalBidAmount == 0) return 0;
+        return ((_totalBidAmount) / getTokenPrice());
     }
 
     function insertBid() external payable auctionOngoing {
@@ -104,25 +128,13 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         else {
             bidders.set(msg.sender, msg.value);
             _totalBidAmount += msg.value;
-            if (getSupplyReserved() >= AUCTION_SUPPLY) _endAuction();
+            if (getSupplyReserved() >= AUCTION_SUPPLY) {
+                _endAuction();
+            }
         }
     }
 
-    /**
-     * Check if auction should end
-     * If yes, end the auction
-     * @dev Gas cost of ending the auction is passed to the user
-     */
-    function checkIfAuctionShouldEnd() public returns (bool) {
-        if (
-            (getSupplyReserved() >= AUCTION_SUPPLY) ||
-            (block.timestamp >= _auctionStartTime + 20 minutes)
-        ) {
-            _endAuction();
-            return true;
-        }
-        return false;
-    }
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 
     function withdraw() external {
         require(
@@ -136,6 +148,14 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         uint256 numOfKetchup = ethBidded / getTokenPrice();
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
         (bool sent, ) = msg.sender.call{value: refundValue}("");
+        require(sent, "Failed to withdraw");
+    }
+
+    /**
+     * Get total amount bidded in current auction
+     */
+    function getTotalBidAmount() external view returns (uint256) {
+        return _totalBidAmount;
     }
 
     function _endAuction() private {
