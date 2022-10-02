@@ -1,9 +1,10 @@
 pragma solidity 0.8.16;
 
-import "./IterableMapping.sol";
 import "./EnumDeclaration.sol";
+import "./libraries/IterableMapping.sol";
 import "../interfaces/IKetchupToken.sol";
 import "../interfaces/IERC20.sol";
+import "../interfaces/IAuctionV1.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -14,7 +15,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  * @title Auction contract V1
  * @author Team Ketchup
  */
-contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
+contract AuctionV1 is
+    Initializable,
+    UUPSUpgradeable,
+    OwnableUpgradeable,
+    IAuctionV1
+{
     using IterableMapping for IterableMapping.Map;
 
     //Starting price: 1 ETH/KCH
@@ -24,20 +30,18 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
     uint256 constant AUCTION_SUPPLY = 1e20;
 
     ///Auction-related variables
+    AuctionState private _currentAuctionState;
     uint256 private _endPrice;
     uint256 private _auctionStartTime;
-    AuctionState private _currentAuctionState;
 
-    ///Address of Ketchup Token
-    address private _ketchupToken;
-
-    ///Binding-related variables
-    uint256 public _totalBidAmount;
+    ///Bidding-related variables
+    uint256 private _totalBidAmount;
+    uint256 private _refundAmount;
     mapping(address => uint256) private _refunds;
     IterableMapping.Map bidders;
 
-    event ShouldAuctionEnd(bool value);
-    event RefundValue(uint256 amount);
+    ///Address of Ketchup Token
+    address private _ketchupToken;
 
     /**
      * CCheck if the auction is still ongoing.
@@ -62,9 +66,7 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _currentAuctionState = AuctionState.CLOSED;
     }
 
-    /**
-     * Allow the owner of the Auction contract to start auction
-     */
+    ///@inheritdoc IAuctionV1
     function startAuction() public onlyOwner {
         require(
             _currentAuctionState == AuctionState.CLOSED,
@@ -74,14 +76,11 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         _auctionStartTime = block.timestamp;
         _currentAuctionState = AuctionState.ONGOING;
         _totalBidAmount = 0;
+        _refundAmount = 0;
         delete bidders.keys;
     }
 
-    /**
-     * Check if auction should end
-     * If yes, end the auction
-     * @dev Gas cost of ending the auction is passed to the user
-     */
+    ///@inheritdoc IAuctionV1
     function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
         if (
             (getSupplyReserved() >= AUCTION_SUPPLY) ||
@@ -96,15 +95,19 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         return false;
     }
 
-    function getAuctionState() public view returns (AuctionState) {
-        return _currentAuctionState;
+    ///@inheritdoc IAuctionV1
+    function getAuctionState() external view returns (uint8) {
+        return uint8(_currentAuctionState);
     }
 
-    /**
-     * Get current token price
-     * @notice decimal of token is 10**18
-     * @return price in a range of 10**16 to 10**17
-     */
+    ///@inheritdoc IAuctionV1
+    function getSupplyReserved() public view returns (uint256) {
+        if (_totalBidAmount == 0) return 0;
+
+        return ((_totalBidAmount * 1e18) / getTokenPrice());
+    }
+
+    ///@inheritdoc IAuctionV1
     function getTokenPrice() public view returns (uint256) {
         if (_currentAuctionState == AuctionState.CLOSED) {
             return _endPrice;
@@ -113,17 +116,9 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
             ((block.timestamp - _auctionStartTime) * MULTIPLIER));
     }
 
-    /**
-     * Get current number of tokens reserved by bidders
-     */
-    function getSupplyReserved() public view returns (uint256) {
-        if (_totalBidAmount == 0) return 0;
-
-        return ((_totalBidAmount * 1e18) / getTokenPrice());
-    }
-
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
+    ///@inheritdoc IAuctionV1
     function insertBid() external payable auctionOngoing {
         bool ended = checkIfAuctionShouldEnd();
         if (ended) _refunds[msg.sender] = msg.value;
@@ -136,6 +131,7 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         }
     }
 
+    ///@inheritdoc IAuctionV1
     function withdraw() external {
         require(
             _currentAuctionState == AuctionState.CLOSED,
@@ -149,28 +145,43 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         bidders.remove(msg.sender);
         uint256 refundValue = _refunds[msg.sender];
         _refunds[msg.sender] = 0;
+        _refundAmount = 0;
         uint256 numOfKetchup = (ethBidded * 1e18) / getTokenPrice();
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
         (bool sent, ) = msg.sender.call{value: refundValue}("");
         require(sent, "Failed to withdraw");
-        emit RefundValue(refundValue);
+        emit Receiving(refundValue);
     }
 
-    /**
-     * Get total amount bidded in current auction
-     */
-    function getTotalBidAmount() external view returns (uint256) {
-        return _totalBidAmount;
+    ///@inheritdoc IAuctionV1
+    function withdrawAll() external onlyOwner {
+        require(
+            _currentAuctionState == AuctionState.CLOSED,
+            "Auction is ongoing"
+        );
+        uint256 balance = address(this).balance - _refundAmount;
+        (bool sent, ) = owner().call{value: balance}("");
+        require(sent, "Failed to withdraw");
     }
 
-    function getUserBidAmount(address account) external view returns (uint256) {
-        return bidders.get(account);
-    }
-
+    ///@inheritdoc IAuctionV1
     function getAuctionStartTime() external view returns (uint256) {
         return _auctionStartTime;
     }
 
+    ///@inheritdoc IAuctionV1
+    function getTotalBidAmount() external view returns (uint256) {
+        return _totalBidAmount;
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getUserBidAmount(address account) external view returns (uint256) {
+        return bidders.get(account);
+    }
+
+    /**
+     * End auction
+     */
     function _endAuction() private {
         _currentAuctionState = AuctionState.CLOSING;
         _endPrice = getSupplyReserved() >= AUCTION_SUPPLY
@@ -187,6 +198,9 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         }
     }
 
+    /**
+     * Refund excess ETH to the last bidder
+     */
     function _refundLastBidder() private {
         uint256 tokensExceeded = getSupplyReserved() - AUCTION_SUPPLY;
         address lastBidder = bidders.getKeyAtIndex(bidders.size() - 1);
@@ -194,6 +208,8 @@ contract AuctionV1 is Initializable, UUPSUpgradeable, OwnableUpgradeable {
         bidders.values[lastBidder] =
             (bidders.values[lastBidder] * 1e18 - excessValue) /
             1e18;
-        _refunds[lastBidder] += excessValue / 1e18;
+        uint256 refundVal = excessValue / 1e18;
+        _refunds[lastBidder] += refundVal;
+        _refundAmount += refundVal;
     }
 }

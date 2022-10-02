@@ -94,7 +94,7 @@ describe("📝 Auction Contract", function () {
 
     //Therefore, user qualifies for refund
     await expect(auctionContract.withdraw())
-      .to.emit(auctionContract, "RefundValue")
+      .to.emit(auctionContract, "Receiving")
       .withArgs(notZero);
     expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
       AUCTION_SUPPLY
@@ -114,7 +114,7 @@ describe("📝 Auction Contract", function () {
     ).to.be.equal(0);
   });
 
-  it("⌛️ User is unable to withdraw after they miss the period", async function () {
+  it("⌛️ User is unable to withdraw after they have missed the period", async function () {
     await auctionContract.startAuction();
 
     //User funds first auction
@@ -171,12 +171,22 @@ describe("📝 Auction Contract", function () {
     //First 3 bidders are not entitled to refunds
     for (i = 0; i < 3; i++)
       expect(await auctionContract.connect(accounts[i]).withdraw())
-        .to.emit(auctionContract, "RefundValue")
+        .to.emit(auctionContract, "Receiving")
         .withArgs((x) => x === 0);
 
     //Last bidder should get a refund as they overbid by >= 20 ETH
     expect(await auctionContract.connect(accounts[3]).withdraw())
-      .to.emit(auctionContract, "RefundValue")
+      .to.emit(auctionContract, "Receiving")
       .withArgs(notZero);
+  });
+
+  it("👩‍🦱 Owner is able to withdraw all of the eth in the contract", async function () {
+    await auctionContract.startAuction();
+    await auctionContract
+      .connect(accounts[1])
+      .insertBid({ value: ethers.utils.parseEther("120") });
+    expect(await auctionContract.withdrawAll())
+      .to.emit(auctionContract, "Receiving")
+      .withArgs(AUCTION_SUPPLY);
   });
 });
