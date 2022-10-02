@@ -1,5 +1,7 @@
 pragma solidity 0.8.16;
 
+import "hardhat/console.sol";
+
 library IterableMapping {
     struct Map {
         address[] keys;
@@ -8,7 +10,8 @@ library IterableMapping {
     }
 
     function get(Map storage map, address key) internal view returns (uint) {
-        return map.values[key];
+        if (_checkIfKeyExist(map, key)) return map.values[key];
+        return 0;
     }
 
     function getKeyAtIndex(Map storage map, uint index)
@@ -32,16 +35,12 @@ library IterableMapping {
             map.values[key] += val;
         } else {
             map.values[key] = val;
-            map.keys.push(key);
             map.indexOf[key] = map.keys.length;
+            map.keys.push(key);
         }
     }
 
     function remove(Map storage map, address key) internal {
-        if (map.values[key] == 0) {
-            return;
-        }
-
         delete map.values[key];
 
         uint index = map.indexOf[key];

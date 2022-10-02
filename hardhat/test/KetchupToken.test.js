@@ -34,12 +34,15 @@ describe("💰 Ketchup Token", function () {
   });
 
   it("💵 Maximum mintable should be 1e20", async function () {
-    for (i = 0; i < 9; i++)
+    for (i = 0; i < 9; i++) {
       await ketchupContract.connect(accounts[1]).fundAuction();
+    }
+
     //Account should have 1e20 tokens after calling fundAuctions() x10
     expect(await ketchupContract.balanceOf(accounts[1].address)).to.equal(
-      BigInt(1e20)
+      AUCTION_SUPPLY * BigInt(10)
     );
+
     //Further fundAuction() calls should fail
     await expect(
       ketchupContract.connect(accounts[1]).fundAuction()
