@@ -14,6 +14,11 @@ interface IAuctionV1 {
     event Receiving(uint256 amount);
 
     /**
+     * Returns current auction number
+     */
+    function getAuctionNo() external view returns (uint256);
+
+    /**
      * Returns auction's start time
      */
     function getAuctionStartTime() external view returns (uint256);
@@ -32,14 +37,32 @@ interface IAuctionV1 {
     function getSupplyReserved() external view returns (uint256);
 
     /**
-     * Returns current KCH token's price
+     * Returns current KCH token price
      */
     function getTokenPrice() external view returns (uint256);
 
     /**
-     * Returns total amount bidded in current auction
+     * Returns selected auction's KCH token price
+     * @param auctionNo The number of the auction caller wish to view
      */
-    function getTotalBidAmount() external view returns (uint256);
+    function getTokenPrice(uint256 auctionNo) external view returns (uint256);
+
+    /**
+     * Return total ETH bidded in selected auction
+     * @param auctionNo The number of the auction caller wish to view
+     */
+    function getTotalBiddedAmount(uint256 auctionNo)
+        external
+        view
+        returns (uint256);
+
+    /**
+     * Returns total amount bidded in selected auction
+     */
+    function getTotalBidAmount(uint256 auctionNo)
+        external
+        view
+        returns (uint256);
 
     /**
      * Returns a user's bidded amount in current auction

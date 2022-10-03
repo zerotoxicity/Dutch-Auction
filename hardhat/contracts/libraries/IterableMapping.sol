@@ -41,6 +41,7 @@ library IterableMapping {
     }
 
     function remove(Map storage map, address key) internal {
+        if (map.values[key] == 0) return;
         delete map.values[key];
 
         uint index = map.indexOf[key];

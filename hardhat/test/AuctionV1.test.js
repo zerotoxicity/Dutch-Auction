@@ -114,7 +114,7 @@ describe("📝 Auction Contract", function () {
     ).to.be.equal(0);
   });
 
-  it("⌛️ User is unable to withdraw after they have missed the period", async function () {
+  it("⌛️ User is able to withdraw past auction prize", async function () {
     await auctionContract.startAuction();
 
     //User funds first auction
@@ -125,16 +125,23 @@ describe("📝 Auction Contract", function () {
 
     //User is unable to withdraw while an auction is ongoing
     await expect(auctionContract.withdraw()).to.be.reverted;
-    await fastForwardTwentyMins();
 
-    //User is unable to withdraw first auction's prize
-    await expect(auctionContract.withdraw()).to.be.reverted;
+    //End auction
+    await fastForwardTwentyMins();
+    await auctionContract.checkIfAuctionShouldEnd();
+
+    await auctionContract.withdraw();
+    expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+      AUCTION_SUPPLY
+    );
   });
 
   it("🔥 Auction should burn leftover tokens", async function () {
     await auctionContract.startAuction();
     await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
-    expect(await auctionContract.getTotalBidAmount()).to.be.equal(BigInt(1e18));
+    expect(
+      await auctionContract.getTotalBidAmount(auctionContract.getAuctionNo())
+    ).to.be.equal(BigInt(1e18));
     await fastForwardTwentyMins();
     await auctionContract.checkIfAuctionShouldEnd();
     await auctionContract.withdraw();
@@ -146,11 +153,11 @@ describe("📝 Auction Contract", function () {
   it("👵 User is able to insert multiple bids", async function () {
     await auctionContract.startAuction();
     await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
-    expect(await auctionContract.getTotalBidAmount()).to.be.equal(
-      BigInt(50 * 1e18)
-    );
+    expect(
+      await auctionContract.getTotalBidAmount(auctionContract.getAuctionNo())
+    ).to.be.equal(BigInt(50 * 1e18));
     await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
-    expect(await auctionContract.getTotalBidAmount()).to.be.equal(
+    expect(await auctionContract.getTotalBidAmount(0)).to.be.equal(
       AUCTION_SUPPLY
     );
     await auctionContract.withdraw();

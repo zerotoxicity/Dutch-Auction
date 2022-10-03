@@ -31,14 +31,15 @@ contract AuctionV1 is
 
     ///Auction-related variables
     AuctionState private _currentAuctionState;
-    uint256 private _endPrice;
-    uint256 private _auctionStartTime;
+    uint256 private _auctionNo;
+    mapping(uint256 => uint256) private _endPrice;
+    mapping(uint256 => uint256) private _auctionStartTime;
 
     ///Bidding-related variables
-    uint256 private _totalBidAmount;
     uint256 private _refundAmount;
+    mapping(uint256 => uint256) private _totalBidAmount;
     mapping(address => uint256) private _refunds;
-    IterableMapping.Map bidders;
+    mapping(uint256 => IterableMapping.Map) bidders;
 
     ///Address of Ketchup Token
     address private _ketchupToken;
@@ -73,18 +74,15 @@ contract AuctionV1 is
             "Auction is ongoing."
         );
         IKetchupToken(_ketchupToken).fundAuction();
-        _auctionStartTime = block.timestamp;
+        _auctionStartTime[_auctionNo] = block.timestamp;
         _currentAuctionState = AuctionState.ONGOING;
-        _totalBidAmount = 0;
-        _refundAmount = 0;
-        delete bidders.keys;
     }
 
     ///@inheritdoc IAuctionV1
     function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
         if (
             (getSupplyReserved() >= AUCTION_SUPPLY) ||
-            (block.timestamp >= _auctionStartTime + 20 minutes)
+            (block.timestamp >= _auctionStartTime[_auctionNo] + 20 minutes)
         ) {
             _endAuction();
             emit ShouldAuctionEnd(true);
@@ -102,18 +100,29 @@ contract AuctionV1 is
 
     ///@inheritdoc IAuctionV1
     function getSupplyReserved() public view returns (uint256) {
-        if (_totalBidAmount == 0) return 0;
+        uint256 totalBiddedAmount = getTotalBiddedAmount(_auctionNo);
+        if (totalBiddedAmount == 0) return 0;
 
-        return ((_totalBidAmount * 1e18) / getTokenPrice());
+        return ((totalBiddedAmount * 1e18) / getTokenPrice());
     }
 
     ///@inheritdoc IAuctionV1
     function getTokenPrice() public view returns (uint256) {
-        if (_currentAuctionState == AuctionState.CLOSED) {
-            return _endPrice;
-        }
-        return (STARTING_PRICE -
-            ((block.timestamp - _auctionStartTime) * MULTIPLIER));
+        return _getTokenPrice(_auctionNo);
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getTokenPrice(uint256 auctionNo) public view returns (uint256) {
+        return _getTokenPrice(auctionNo);
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getTotalBiddedAmount(uint256 auctionNo)
+        public
+        view
+        returns (uint256)
+    {
+        return _totalBidAmount[auctionNo];
     }
 
     function _authorizeUpgrade(address) internal override onlyOwner {}
@@ -123,8 +132,8 @@ contract AuctionV1 is
         bool ended = checkIfAuctionShouldEnd();
         if (ended) _refunds[msg.sender] = msg.value;
         else {
-            bidders.set(msg.sender, msg.value);
-            _totalBidAmount += msg.value;
+            bidders[_auctionNo].set(msg.sender, msg.value);
+            _totalBidAmount[_auctionNo] += msg.value;
             if (getSupplyReserved() >= AUCTION_SUPPLY) {
                 _endAuction();
             }
@@ -137,16 +146,25 @@ contract AuctionV1 is
             _currentAuctionState == AuctionState.CLOSED,
             "Auction is not closed"
         );
+
+        uint256 ethBidded;
+        for (uint256 i = 0; i < _auctionNo; i++) {
+            ethBidded += bidders[i].get(msg.sender);
+        }
         require(
-            ((bidders.get(msg.sender) > 0)) || (_refunds[msg.sender] > 0),
+            ((ethBidded > 0)) || (_refunds[msg.sender] > 0),
             "Did not bid/Withdrawn"
         );
-        uint256 ethBidded = bidders.get(msg.sender);
-        bidders.remove(msg.sender);
         uint256 refundValue = _refunds[msg.sender];
         _refunds[msg.sender] = 0;
-        _refundAmount = 0;
-        uint256 numOfKetchup = (ethBidded * 1e18) / getTokenPrice();
+        _refundAmount -= refundValue;
+        uint256 numOfKetchup;
+        for (uint256 i = 0; i < _auctionNo; i++) {
+            numOfKetchup +=
+                (bidders[i].get(msg.sender) * 1e18) /
+                getTokenPrice(i);
+            bidders[i].remove(msg.sender);
+        }
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
         (bool sent, ) = msg.sender.call{value: refundValue}("");
         require(sent, "Failed to withdraw");
@@ -165,18 +183,27 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function getAuctionStartTime() external view returns (uint256) {
-        return _auctionStartTime;
+    function getAuctionNo() external view returns (uint256) {
+        return _auctionNo;
     }
 
     ///@inheritdoc IAuctionV1
-    function getTotalBidAmount() external view returns (uint256) {
-        return _totalBidAmount;
+    function getAuctionStartTime() external view returns (uint256) {
+        return _auctionStartTime[_auctionNo];
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getTotalBidAmount(uint256 auctionNo)
+        external
+        view
+        returns (uint256)
+    {
+        return _totalBidAmount[auctionNo];
     }
 
     ///@inheritdoc IAuctionV1
     function getUserBidAmount(address account) external view returns (uint256) {
-        return bidders.get(account);
+        return bidders[_auctionNo].get(account);
     }
 
     /**
@@ -184,10 +211,9 @@ contract AuctionV1 is
      */
     function _endAuction() private {
         _currentAuctionState = AuctionState.CLOSING;
-        _endPrice = getSupplyReserved() >= AUCTION_SUPPLY
+        _endPrice[_auctionNo] = getSupplyReserved() >= AUCTION_SUPPLY
             ? getTokenPrice()
             : RESERVED_PRICE;
-
         _currentAuctionState = AuctionState.CLOSED;
         if (getSupplyReserved() > AUCTION_SUPPLY) {
             _refundLastBidder();
@@ -196,6 +222,7 @@ contract AuctionV1 is
             if (leftover > 0)
                 IKetchupToken(_ketchupToken).burnRemainingToken(leftover);
         }
+        _auctionNo++;
     }
 
     /**
@@ -203,13 +230,26 @@ contract AuctionV1 is
      */
     function _refundLastBidder() private {
         uint256 tokensExceeded = getSupplyReserved() - AUCTION_SUPPLY;
-        address lastBidder = bidders.getKeyAtIndex(bidders.size() - 1);
+        address lastBidder = bidders[_auctionNo].getKeyAtIndex(
+            bidders[_auctionNo].size() - 1
+        );
         uint256 excessValue = (tokensExceeded * getTokenPrice());
-        bidders.values[lastBidder] =
-            (bidders.values[lastBidder] * 1e18 - excessValue) /
+        bidders[_auctionNo].values[lastBidder] =
+            (bidders[_auctionNo].values[lastBidder] * 1e18 - excessValue) /
             1e18;
         uint256 refundVal = excessValue / 1e18;
         _refunds[lastBidder] += refundVal;
         _refundAmount += refundVal;
+    }
+
+    /**
+     * @dev See getTokenPrice(uint256 auctionNo)
+     */
+    function _getTokenPrice(uint256 value) private view returns (uint256) {
+        if (_currentAuctionState == AuctionState.CLOSED) {
+            return _endPrice[value];
+        }
+        return (STARTING_PRICE -
+            ((block.timestamp - _auctionStartTime[value]) * MULTIPLIER));
     }
 }
