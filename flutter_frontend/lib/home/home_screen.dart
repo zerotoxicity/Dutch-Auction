@@ -38,21 +38,9 @@ class HomeScreen extends StatelessWidget {
       body: Center(
           child: Column(
         children: [
-          // FutureBuilder<String>(
-          //     future: homeController.aggregatorV3Interface.fetchBTCToUSD(),
-          //     builder: (context, snapshot) {
-          //       print("snapshot.data = ${snapshot.data}");
-          //       if (snapshot.connectionState == ConnectionState.active) {
-          //         return const CircularProgressIndicator.adaptive();
-          //       }
-          //       if (snapshot.hasData) {
-          //         return Text("BTC/USD: ${snapshot.data!}");
-          //       }
-          //       return const Text("BTC/USD: not available");
-          //     }),
           Obx(() => Text(homeController.btcToUSD.value.isNotEmpty
               ? "BTC/USD: ${homeController.btcToUSD.value}"
-              : "Not available")),
+              : "BTC/USD Not available")),
         ],
       )),
     );

@@ -13,6 +13,10 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    fetchPrice();
+  }
+
+  fetchPrice() {
     aggregatorV3Interface = AggregatorV3Interface(
       contractAddress: chainlinkGoerliAddress,
       abi: Interface(aggregatorV3InterfaceABI),

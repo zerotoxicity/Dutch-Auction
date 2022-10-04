@@ -7,6 +7,7 @@ class Web3Controller extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
     if (isEnabled.value) {
       ethereum!.onAccountsChanged((accounts) {
         clear();
