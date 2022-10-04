@@ -1,28 +1,17 @@
 const AUCTION_SUPPLY = BigInt(1e20);
 const BURN_AMOUNT = BigInt(1e19);
 
-async function deployKetchupContract() {
-  const KetchupTokenV1 = await ethers.getContractFactory("KetchupTokenV1");
-  ketchupContract = await upgrades.deployProxy(
-    KetchupTokenV1,
-    ["Ketchup", "KCH"],
-    {
-      kind: "uups",
-    }
-  );
-  return ketchupContract;
+// Deploy upgradeable contracts
+async function deployContract(contractName, args) {
+  const contractFactory = await ethers.getContractFactory(contractName);
+  const contract = await upgrades.deployProxy(contractFactory, args, {
+    kind: "uups",
+  });
+  return contract;
 }
 
-async function deployIterableMapping() {
-  const iterableMappingFactory = await ethers.getContractFactory(
-    "IterableMapping"
-  );
-  const iterableMappingContract = await iterableMappingFactory.deploy();
-  return iterableMappingContract;
-}
-
+// Fast forward time by 20 minutes
 async function fastForwardTwentyMins() {
-  //Fast forward time by 20 minutes
   await ethers.provider.send("evm_increaseTime", [60 * 60 * 20]);
   await ethers.provider.send("evm_mine");
 }
@@ -34,8 +23,7 @@ function notZero(x) {
 module.exports = {
   AUCTION_SUPPLY,
   BURN_AMOUNT,
-  deployKetchupContract,
-  deployIterableMapping,
+  deployContract,
   fastForwardTwentyMins,
   notZero,
 };

@@ -1,6 +1,6 @@
-const { ethers, upgrades, waffle } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
-const { AUCTION_SUPPLY, BURN_AMOUNT } = require("./TestHelper");
+const { AUCTION_SUPPLY, BURN_AMOUNT, deployContract } = require("./TestHelper");
 
 describe("💰 Ketchup Token", function () {
   let ketchupContract;
@@ -10,14 +10,10 @@ describe("💰 Ketchup Token", function () {
   beforeEach(async function () {
     accounts = await ethers.getSigners();
     deployer = accounts[0];
-    const KetchupTokenV1 = await ethers.getContractFactory("KetchupTokenV1");
-    ketchupContract = await upgrades.deployProxy(
-      KetchupTokenV1,
-      ["Ketchup", "KCH"],
-      {
-        kind: "uups",
-      }
-    );
+    ketchupContract = await deployContract("KetchupTokenV1", [
+      "Ketchup",
+      "KCH",
+    ]);
 
     await ketchupContract.transferOwnership(accounts[1].address);
     await ketchupContract.connect(accounts[1]).fundAuction();

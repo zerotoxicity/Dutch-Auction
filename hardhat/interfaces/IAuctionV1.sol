@@ -57,14 +57,6 @@ interface IAuctionV1 {
         returns (uint256);
 
     /**
-     * Returns total amount bidded in selected auction
-     */
-    function getTotalBidAmount(uint256 auctionNo)
-        external
-        view
-        returns (uint256);
-
-    /**
      * Returns a user's bidded amount in current auction
      */
     function getUserBidAmount(address account) external view returns (uint256);

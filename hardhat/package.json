@@ -13,7 +13,6 @@
     "chai": "^4.3.6",
     "ethers": "^5.7.1",
     "hardhat": "^2.11.1",
-    "hardhat-deploy": "^0.11.15",
     "hardhat-gas-reporter": "^1.0.9",
     "prettier": "^2.7.1",
     "prettier-plugin-solidity": "^1.0.0-beta.24",
@@ -26,5 +25,8 @@
     "@openzeppelin/contracts": "^4.7.3",
     "@openzeppelin/contracts-upgradeable": "^4.8.0-rc.1",
     "dotenv": "^16.0.2"
+  },
+  "scripts": {
+    "deploy": "yarn hardhat run scripts/deploy.js"
   }
 }

@@ -1,9 +1,8 @@
-const { ethers, upgrades, waffle } = require("hardhat");
+const { ethers } = require("hardhat");
 const { expect } = require("chai");
 const {
   AUCTION_SUPPLY,
-  deployKetchupContract,
-  deployIterableMapping,
+  deployContract,
   fastForwardTwentyMins,
   notZero,
 } = require("./TestHelper");
@@ -17,15 +16,14 @@ describe("📝 Auction Contract", function () {
   beforeEach(async function () {
     accounts = await ethers.getSigners();
     deployer = accounts[0];
-    ketchupContract = await deployKetchupContract();
-    iterableMapping = await deployIterableMapping();
+    ketchupContract = await deployContract("KetchupTokenV1", [
+      "Ketchup",
+      "KCH",
+    ]);
 
-    const AuctionV1 = await ethers.getContractFactory("AuctionV1", {});
-    auctionContract = await upgrades.deployProxy(
-      AuctionV1,
-      [ketchupContract.address],
-      { kind: "uups" }
-    );
+    auctionContract = await deployContract("AuctionV1", [
+      ketchupContract.address,
+    ]);
     await ketchupContract.transferOwnership(auctionContract.address);
   });
 
@@ -140,7 +138,7 @@ describe("📝 Auction Contract", function () {
     await auctionContract.startAuction();
     await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
     expect(
-      await auctionContract.getTotalBidAmount(auctionContract.getAuctionNo())
+      await auctionContract.getTotalBiddedAmount(auctionContract.getAuctionNo())
     ).to.be.equal(BigInt(1e18));
     await fastForwardTwentyMins();
     await auctionContract.checkIfAuctionShouldEnd();
@@ -154,10 +152,10 @@ describe("📝 Auction Contract", function () {
     await auctionContract.startAuction();
     await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
     expect(
-      await auctionContract.getTotalBidAmount(auctionContract.getAuctionNo())
+      await auctionContract.getTotalBiddedAmount(auctionContract.getAuctionNo())
     ).to.be.equal(BigInt(50 * 1e18));
     await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
-    expect(await auctionContract.getTotalBidAmount(0)).to.be.equal(
+    expect(await auctionContract.getTotalBiddedAmount(0)).to.be.equal(
       AUCTION_SUPPLY
     );
     await auctionContract.withdraw();

@@ -9,8 +9,6 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
-///FORMATTED USING SOLIDITY STYLE GUIDE
-
 /**
  * @title Auction contract V1
  * @author Team Ketchup
@@ -190,15 +188,6 @@ contract AuctionV1 is
     ///@inheritdoc IAuctionV1
     function getAuctionStartTime() external view returns (uint256) {
         return _auctionStartTime[_auctionNo];
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getTotalBidAmount(uint256 auctionNo)
-        external
-        view
-        returns (uint256)
-    {
-        return _totalBidAmount[auctionNo];
     }
 
     ///@inheritdoc IAuctionV1
