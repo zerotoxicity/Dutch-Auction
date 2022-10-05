@@ -102,12 +102,12 @@ contract AuctionV1 is
   }
 
   ///@inheritdoc IAuctionV1
-  function getTokenPriceWithNo(uint256 auctionNo)
-    public
-    view
-    returns (uint256)
-  {
-    return _getTokenPrice(auctionNo);
+  function getTokenPrice(uint256 auctionNo) public view returns (uint256) {
+    if (_currentAuctionState == AuctionState.CLOSED) {
+      return _endPrice[auctionNo];
+    }
+    return (STARTING_PRICE -
+      ((block.timestamp - _auctionStartTime[auctionNo]) * MULTIPLIER));
   }
 
   ///@inheritdoc IAuctionV1
