@@ -28,5 +28,6 @@
   },
   "scripts": {
     "deploy": "yarn hardhat run scripts/deploy.js"
-  }
+  },
+  "version": "0.0.0"
 }
