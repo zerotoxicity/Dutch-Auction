@@ -40,10 +40,7 @@ interface IAuctionV1 {
      * Returns selected auction's KCH token price
      * @param auctionNo The number of the auction caller wish to view
      */
-    function getTokenPriceWithNo(uint256 auctionNo)
-        external
-        view
-        returns (uint256);
+    function getTokenPrice(uint256 auctionNo) external view returns (uint256);
 
     /**
      * Return total ETH bidded in selected auction

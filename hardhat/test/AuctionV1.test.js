@@ -185,7 +185,7 @@ describe("📝 Auction Contract", function () {
       .withArgs(notZero);
   });
 
-  it("👩‍🦱 Owner is able to withdraw all of the eth in the contract", async function () {
+  it("👩 Owner is able to withdraw all of the eth in the contract", async function () {
     await auctionContract.startAuction();
     await auctionContract
       .connect(accounts[1])
