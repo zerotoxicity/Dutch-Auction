@@ -17,6 +17,8 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Home Screen"),
         actions: [
+          Obx(() =>
+              Text("Current Chain: ${web3Controller.currentChain.value}")),
           FutureBuilder<BigInt>(
               future: web3Controller.getNativeTokenBalance(),
               builder: (context, snapshot) {
@@ -39,7 +41,7 @@ class DashboardScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          Obx(() => Text(dashboardController.btcToUSD.value)),
+          Obx(() => Text(dashboardController.tokenPrice.value.toString())),
         ],
       ),
     );

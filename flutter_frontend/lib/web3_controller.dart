@@ -10,14 +10,17 @@ class Web3Controller extends GetxController {
 
     if (isEnabled.value) {
       ethereum!.onAccountsChanged((accounts) {
-        clear();
+        print("Change in account: $accounts");
+        currentAddress.value = accounts[0];
+        window.location.reload();
       });
       ethereum!.onChainChanged((chainId) {
         print("Change in chainId: $chainId");
-        clear();
+        setChain(chainId);
         window.location.reload();
       });
       ethereum!.onDisconnect((error) {
+        clear();
         update();
       });
 
@@ -52,8 +55,6 @@ class Web3Controller extends GetxController {
   Future<BigInt> getNativeTokenBalanceOf(String address) async {
     try {
       if (ethereum != null) {
-        print("Fetching native token from: $address");
-
         final web3provider = Web3Provider.fromEthereum(ethereum!);
         return await web3provider.getBalance(address);
       }

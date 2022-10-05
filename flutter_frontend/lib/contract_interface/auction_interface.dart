@@ -1,5 +1,7 @@
 import "package:flutter_web3/flutter_web3.dart";
 
+// Auction Contract: 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+
 /// Functions required by bidder only
 class AuctionInterface {
   String auctionAddress;

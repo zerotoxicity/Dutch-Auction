@@ -5,12 +5,12 @@ import 'package:flutter_frontend/unknown_screen.dart';
 import 'package:get/get.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
-
+  MyApp({Key? key}) : super(key: key);
+  final Web3Controller c = Get.put(Web3Controller());
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -26,9 +26,7 @@ class MyApp extends StatelessWidget {
 
 class LoginPage extends StatelessWidget {
   LoginPage({Key? key}) : super(key: key);
-
-  final Web3Controller c = Get.put(Web3Controller());
-
+  final c = Get.find<Web3Controller>();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
