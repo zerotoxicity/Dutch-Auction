@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_frontend/web3_controller.dart';
-import 'package:flutter_frontend/home/home_screen.dart';
+import 'package:flutter_frontend/screen/dashboard/screen.dart';
 import 'package:flutter_frontend/unknown_screen.dart';
 import 'package:get/get.dart';
 
@@ -43,7 +43,7 @@ class LoginPage extends StatelessWidget {
                     message: "Login successfully!",
                     duration: Duration(seconds: 2),
                   ).show();
-                  await Get.offAll(HomeScreen());
+                  await Get.offAll(DashboardScreen());
                 });
               },
               child: Obx(
@@ -52,11 +52,8 @@ class LoginPage extends StatelessWidget {
         ],
       ),
       body: Center(
-        child: Column(children: [
-          Obx(() => SelectableText(
-              c.isConnected.value ? c.currentAddress.value : "Not connected")),
-          const SizedBox(height: 10),
-        ]),
+        child: Obx(() => SelectableText(
+            c.isConnected.value ? c.currentAddress.value : "Not connected")),
       ),
     );
   }

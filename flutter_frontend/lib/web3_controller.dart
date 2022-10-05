@@ -13,6 +13,7 @@ class Web3Controller extends GetxController {
         clear();
       });
       ethereum!.onChainChanged((chainId) {
+        print("Change in chainId: $chainId");
         clear();
         window.location.reload();
       });

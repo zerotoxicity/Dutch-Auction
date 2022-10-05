@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_frontend/home/home_controller.dart';
+import 'package:flutter_frontend/screen/dashboard/controller.dart';
 import 'package:flutter_frontend/web3_controller.dart';
 import 'package:get/get.dart';
 
-import '../helper.dart';
+import '../../helper.dart';
 
 // Shows the current ICO activities, login required
-class HomeScreen extends StatelessWidget {
-  HomeScreen({Key? key}) : super(key: key);
+class DashboardScreen extends StatelessWidget {
+  DashboardScreen({Key? key}) : super(key: key);
   final Web3Controller web3Controller = Get.find<Web3Controller>();
-  final HomeController homeController = Get.put(HomeController());
+  final DashboardController dashboardController =
+      Get.put(DashboardController());
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -35,14 +36,12 @@ class HomeScreen extends StatelessWidget {
           )
         ],
       ),
-      body: Center(
-          child: Column(
+      body: ListView(
+        padding: const EdgeInsets.all(20),
         children: [
-          Obx(() => Text(homeController.btcToUSD.value.isNotEmpty
-              ? "BTC/USD: ${homeController.btcToUSD.value}"
-              : "BTC/USD Not available")),
+          Obx(() => Text(dashboardController.btcToUSD.value)),
         ],
-      )),
+      ),
     );
   }
 }
