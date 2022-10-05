@@ -1,5 +1,6 @@
 pragma solidity 0.8.16;
 
+import "./interfaces/IKetchupToken.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
@@ -10,6 +11,7 @@ import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
  * @author Team Ketchup
  */
 contract KetchupTokenV1 is
+    IKetchupToken,
     Initializable,
     UUPSUpgradeable,
     ERC20Upgradeable,
@@ -31,10 +33,7 @@ contract KetchupTokenV1 is
         _mint(owner(), 1e20);
     }
 
-    /**
-     * Burn unsold token
-     * @param amount number of token not sold
-     */
+    ///@inheritdoc IKetchupToken
     function burnRemainingToken(uint256 amount) external onlyOwner {
         _burn(owner(), amount);
     }

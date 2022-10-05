@@ -2,9 +2,9 @@ pragma solidity 0.8.16;
 
 import "./EnumDeclaration.sol";
 import "./libraries/IterableMapping.sol";
-import "../interfaces/IKetchupToken.sol";
-import "../interfaces/IERC20.sol";
-import "../interfaces/IAuctionV1.sol";
+import "./interfaces/IKetchupToken.sol";
+import "./interfaces/IERC20.sol";
+import "./interfaces/IAuctionV1.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
@@ -14,10 +14,10 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
  * @author Team Ketchup
  */
 contract AuctionV1 is
+    IAuctionV1,
     Initializable,
     UUPSUpgradeable,
-    OwnableUpgradeable,
-    IAuctionV1
+    OwnableUpgradeable
 {
     using IterableMapping for IterableMapping.Map;
 
@@ -101,17 +101,16 @@ contract AuctionV1 is
         uint256 totalBiddedAmount = getTotalBiddedAmount(_auctionNo);
         if (totalBiddedAmount == 0) return 0;
 
-        return ((totalBiddedAmount * 1e18) / getTokenPrice());
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getTokenPrice() public view returns (uint256) {
-        return _getTokenPrice(_auctionNo);
+        return ((totalBiddedAmount * 1e18) / getTokenPrice(_auctionNo));
     }
 
     ///@inheritdoc IAuctionV1
     function getTokenPrice(uint256 auctionNo) public view returns (uint256) {
-        return _getTokenPrice(auctionNo);
+        if (_currentAuctionState == AuctionState.CLOSED) {
+            return _endPrice[auctionNo];
+        }
+        return (STARTING_PRICE -
+            ((block.timestamp - _auctionStartTime[auctionNo]) * MULTIPLIER));
     }
 
     ///@inheritdoc IAuctionV1
@@ -201,7 +200,7 @@ contract AuctionV1 is
     function _endAuction() private {
         _currentAuctionState = AuctionState.CLOSING;
         _endPrice[_auctionNo] = getSupplyReserved() >= AUCTION_SUPPLY
-            ? getTokenPrice()
+            ? getTokenPrice(_auctionNo)
             : RESERVED_PRICE;
         _currentAuctionState = AuctionState.CLOSED;
         if (getSupplyReserved() > AUCTION_SUPPLY) {
@@ -222,23 +221,12 @@ contract AuctionV1 is
         address lastBidder = bidders[_auctionNo].getKeyAtIndex(
             bidders[_auctionNo].size() - 1
         );
-        uint256 excessValue = (tokensExceeded * getTokenPrice());
+        uint256 excessValue = (tokensExceeded * getTokenPrice(_auctionNo));
         bidders[_auctionNo].values[lastBidder] =
             (bidders[_auctionNo].values[lastBidder] * 1e18 - excessValue) /
             1e18;
         uint256 refundVal = excessValue / 1e18;
         _refunds[lastBidder] += refundVal;
         _refundAmount += refundVal;
-    }
-
-    /**
-     * @dev See getTokenPrice(uint256 auctionNo)
-     */
-    function _getTokenPrice(uint256 value) private view returns (uint256) {
-        if (_currentAuctionState == AuctionState.CLOSED) {
-            return _endPrice[value];
-        }
-        return (STARTING_PRICE -
-            ((block.timestamp - _auctionStartTime[value]) * MULTIPLIER));
     }
 }

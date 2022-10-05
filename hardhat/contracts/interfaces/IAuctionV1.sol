@@ -37,11 +37,6 @@ interface IAuctionV1 {
     function getSupplyReserved() external view returns (uint256);
 
     /**
-     * Returns current KCH token price
-     */
-    function getTokenPrice() external view returns (uint256);
-
-    /**
      * Returns selected auction's KCH token price
      * @param auctionNo The number of the auction caller wish to view
      */
