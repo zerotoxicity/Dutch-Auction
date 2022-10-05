@@ -77,12 +77,18 @@ class DashboardScreen extends StatelessWidget {
                   ),
                 ),
                 TextButton(
-                    onPressed: () async {
-                      await dashboardController.submitBid();
-                    },
-                    child: const Text("Submit"))
+                  onPressed: () async {
+                    await dashboardController.submitBid();
+                  },
+                  child: const Text("Submit"),
+                ),
               ],
             ),
+            ElevatedButton(
+                onPressed: () {
+                  dashboardController.sendEther(kAuctionContractAddress);
+                },
+                child: Text("Send money to token Address")),
           ],
         ),
       ),

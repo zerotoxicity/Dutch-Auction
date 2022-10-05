@@ -94,6 +94,20 @@ class DashboardController extends GetxController {
     }
   }
 
+  sendEther(
+    String address,
+  ) async {
+    final tx = await provider!.getSigner().sendTransaction(
+          TransactionRequest(
+            to: address,
+            value: BigInt.from(1000000000),
+          ),
+        );
+    await tx.wait();
+
+    print("Tx: ${tx.hash}");
+  }
+
   // * Token Contract Functions
   fetchTokenSupply() async {
     final value = await tokenContract.totalSupply;
