@@ -18,7 +18,6 @@ class AdminController extends GetxController {
         Wallet(privateKeyEditingController.text).connect(JsonRpcProvider());
 
     // Connect to localhost
-
     walletAddress.value = await adminWallet!.getAddress();
     privateKeyEditingController.clear();
 
@@ -26,6 +25,9 @@ class AdminController extends GetxController {
   }
 
   Future<void> startAuction() async {
-    adminWallet!.provider!.call("startAuction");
+    final result = await adminWallet!.signTransaction(
+      TransactionRequest(),
+    );
+    print('result: $result');
   }
 }

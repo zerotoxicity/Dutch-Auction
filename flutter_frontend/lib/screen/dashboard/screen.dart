@@ -32,7 +32,7 @@ class DashboardScreen extends StatelessWidget {
         backgroundColor: Colors.blue[50],
         appBar: AppBar(
           bottom: const TabBar(tabs: tabs),
-          title: const Text("Home Screen"),
+          title: const Text("Dashboard"),
           actions: [
             Obx(() => Center(
                 child: Text(
@@ -126,10 +126,30 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget get timestampWidget =>
-      Obx(() => SelectableText("Start time: ${controller.startTime.value}"));
-  Widget get countdownWidget => Obx(() => SelectableText(
-      "Seconds left: ${controller.countdownTimer.value.inSeconds}"));
+  /// Convert timestamp to human readable string
+  String _convertTimestampToReadable(int timestamp) {
+    final _dt =
+        DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
+    return "${_dt.day}/${_dt.month}/${_dt.year}";
+  }
+
+  String _countdownHandler(int seconds) {
+    if (seconds > 59 || seconds < -59) {
+      return "${(seconds / 60).round()} mins ${(seconds % 60.round())} seconds";
+    } else {
+      return "$seconds seconds";
+    }
+  }
+
+  Widget get timestampWidget => Obx(
+        () => SelectableText(
+            "Start time: ${_convertTimestampToReadable(controller.startTime.value!.toInt())}"),
+      );
+
+  Widget get countdownWidget => Obx(
+        () => SelectableText(
+            "Time left: ${_countdownHandler(controller.countdownTimerInSeconds.value)}"),
+      );
 
   Widget get auctionNoWidget => Container(
         padding: const EdgeInsets.all(8),

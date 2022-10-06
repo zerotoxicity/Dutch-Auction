@@ -17,7 +17,7 @@ class DashboardController extends GetxController {
   Rxn<BigInt> tokenPrice = Rxn(BigInt.from(-1));
   Rxn<BigInt> tokenSupply = Rxn(BigInt.from(-1));
   Rxn<BigInt> startTime = Rxn(BigInt.from(-1));
-  Rx<Duration> countdownTimer = Rx(const Duration());
+  Rx<int> countdownTimerInSeconds = Rx(0);
 
   TextEditingController bidAmountEditingController = TextEditingController();
   TextEditingController auctionAddressEditingController =
@@ -66,7 +66,7 @@ class DashboardController extends GetxController {
             calculateDeadline(startTime.value!.toInt(), kAuctionDuration);
         deadlineCountdown(
           deadline,
-          countdownTimer,
+          countdownTimerInSeconds,
         );
       }
     });
@@ -164,25 +164,34 @@ class DashboardController extends GetxController {
     tokenSupply.value = value;
   }
 
+  // Calculate by adding startime + auction duration
   DateTime calculateDeadline(
-      int auctionStartTime, int auctionDurationInMinutes) {
-    return DateTime.fromMillisecondsSinceEpoch(auctionStartTime)
-        .add(Duration(minutes: auctionDurationInMinutes));
+    int auctionStartTime,
+    int auctionDurationInMinutes,
+  ) {
+    final _deadline = DateTime.fromMillisecondsSinceEpoch(
+      auctionStartTime * 1000,
+      isUtc: true,
+    ).add(
+      Duration(minutes: auctionDurationInMinutes),
+    );
+    print("Deadline: ${_deadline.toString()}");
+    return _deadline;
   }
 
   /// Calculate difference between deadline relative to current time
   Timer deadlineCountdown(
     DateTime deadline,
-    Rx<Duration> countdownTimer,
+    Rx<int> countdownTimer,
   ) {
     return Timer.periodic(const Duration(seconds: 1), (timer) {
       if (timer.isActive) {
         // Update countdown timer every 1 sec
         final _result = deadline.difference(DateTime.now());
-        if (_result.inSeconds == 0) {
+        if (_result.inSeconds < 0) {
           timer.cancel();
         }
-        countdownTimer.value = _result;
+        countdownTimer.value = _result.inSeconds;
       }
     });
   }
