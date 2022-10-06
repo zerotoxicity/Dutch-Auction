@@ -2,12 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_frontend/contract_interface/auction_interface.dart';
 import 'package:flutter_frontend/helper.dart';
-import 'package:flutter_frontend/web3_controller.dart';
 import 'package:flutter_web3/flutter_web3.dart';
 import 'package:get/get.dart';
-import 'package:web3dart/web3dart.dart';
+import 'package:web3dart/web3dart.dart' as web3dart;
 
 import '../../abi/IAuctionInterface.abi.dart';
 
@@ -18,15 +16,22 @@ class DashboardController extends GetxController {
   Rxn<int> auctionState = Rxn(-1);
   Rxn<BigInt> tokenPrice = Rxn(BigInt.from(-1));
   Rxn<BigInt> tokenSupply = Rxn(BigInt.from(-1));
+  Rxn<BigInt> startTime = Rxn(BigInt.from(-1));
+  Rx<Duration> countdownTimer = Rx(const Duration());
 
-  TextEditingController textEditingController = TextEditingController();
+  TextEditingController bidAmountEditingController = TextEditingController();
+  TextEditingController auctionAddressEditingController =
+      TextEditingController();
+  TextEditingController tokenAddressEditingController = TextEditingController();
 
   late Contract auctionContract;
-
   late ContractERC20 tokenContract;
 
+  // Details for the admin
+  Wallet? adminWallet;
+
   @override
-  void onInit() async {
+  void onInit() {
     provider!
         .getSigner()
         .getAddress()
@@ -38,18 +43,51 @@ class DashboardController extends GetxController {
       kAuctionInterfaceABI,
       provider!.getSigner(),
     );
-
     tokenContract = ContractERC20(kTokenAddress, provider!.getSigner());
   }
 
   @override
-  void onReady() {
+  void onReady() async {
     super.onReady();
+    fetchAuctionFromBlockchain();
+  }
 
-    fetchAuctionNo().then((_) {
+  fetchAuctionFromBlockchain() async {
+    await fetchAuctionNo().then((_) {
       fetchAuctionState();
       fetchBidPrice();
+      fetchTokenSupply();
     });
+
+    await fetchAuctionStartTime().then((value) {
+      if (value != null) {
+        startTime.value = value;
+        final deadline =
+            calculateDeadline(startTime.value!.toInt(), kAuctionDuration);
+        deadlineCountdown(
+          deadline,
+          countdownTimer,
+        );
+      }
+    });
+  }
+
+  // Reassign contract object with new instance
+  updateAddress() async {
+    if (auctionAddressEditingController.text.isNotEmpty) {
+      auctionContract = Contract(
+        auctionAddressEditingController.text,
+        kAuctionInterfaceABI,
+        provider!.getSigner(),
+      );
+    }
+    if (tokenAddressEditingController.text.isNotEmpty) {
+      tokenContract = ContractERC20(
+        tokenAddressEditingController.text,
+        provider!.getSigner(),
+      );
+    }
+    fetchAuctionFromBlockchain();
   }
 
   Future<void> fetchAuctionNo() async {
@@ -65,8 +103,19 @@ class DashboardController extends GetxController {
     );
 
     print("Token price: $value");
-
     currentBidPrice.value = value;
+  }
+
+  /// Return timestamp of auction start time
+  Future<BigInt?> fetchAuctionStartTime() async {
+    try {
+      final value = await auctionContract.call<BigInt>("getAuctionStartTime");
+      print("Auction start time: $value");
+      return value;
+    } catch (e) {
+      print("error in fetching time: ${e.toString()}");
+    }
+    return null;
   }
 
   Future<void> fetchAuctionState() async {
@@ -76,14 +125,14 @@ class DashboardController extends GetxController {
   }
 
   submitBid() async {
-    final valueInWei = double.parse(textEditingController.text) * 1e18;
+    final valueInWei = double.parse(bidAmountEditingController.text) * 1e18;
     try {
       final tx = await auctionContract.send(
         "insertBid",
         [],
         TransactionOverride(
-          value: EtherAmount.fromUnitAndValue(
-            EtherUnit.wei,
+          value: web3dart.EtherAmount.fromUnitAndValue(
+            web3dart.EtherUnit.wei,
             valueInWei.toInt(),
           ).getInWei,
         ),
@@ -94,7 +143,7 @@ class DashboardController extends GetxController {
     }
   }
 
-  sendEther(
+  Future<String> sendEther(
     String address,
   ) async {
     final tx = await provider!.getSigner().sendTransaction(
@@ -104,8 +153,8 @@ class DashboardController extends GetxController {
           ),
         );
     await tx.wait();
-
     print("Tx: ${tx.hash}");
+    return tx.hash;
   }
 
   // * Token Contract Functions
@@ -114,19 +163,27 @@ class DashboardController extends GetxController {
     print("Token Supply: $value");
     tokenSupply.value = value;
   }
+
+  DateTime calculateDeadline(
+      int auctionStartTime, int auctionDurationInMinutes) {
+    return DateTime.fromMillisecondsSinceEpoch(auctionStartTime)
+        .add(Duration(minutes: auctionDurationInMinutes));
+  }
+
+  /// Calculate difference between deadline relative to current time
+  Timer deadlineCountdown(
+    DateTime deadline,
+    Rx<Duration> countdownTimer,
+  ) {
+    return Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (timer.isActive) {
+        // Update countdown timer every 1 sec
+        final _result = deadline.difference(DateTime.now());
+        if (_result.inSeconds == 0) {
+          timer.cancel();
+        }
+        countdownTimer.value = _result;
+      }
+    });
+  }
 }
-
-// void fetchBTCPrice() {
-//   aggregatorV3Interface = AggregatorV3Interface(
-//     contractAddress: kChainlinkGoerliAddress,
-//     abi: Interface(aggregatorV3InterfaceABI),
-//     provider: Get.find<Web3Controller>().getProvider,
-//   );
-
-//   Timer.periodic(const Duration(seconds: 10), (timer) async {
-//     if (timer.isActive) {
-//       String _result = await aggregatorV3Interface.fetchBTCToUSD();
-//       btcToUSD.value = _result;
-//     }
-//   });
-// }

@@ -14,6 +14,10 @@ async function main() {
     `💰 Ketchup Token contract is deployed to ${ketchupContract.address}`
   );
   console.log(`📝 Auction contract is deployed to ${auctionContract.address}`);
+
+  await auctionContract.startAuction().then(() => {
+    console.log("Started Auction");
+  });
 }
 
 main()

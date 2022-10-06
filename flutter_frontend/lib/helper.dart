@@ -22,3 +22,5 @@ const Map<int, String> kAuctionState = {
   1: "CLOSED",
   2: "CLOSING",
 };
+
+const int kAuctionDuration = 20;

@@ -76,6 +76,12 @@ class Web3Controller extends GetxController {
     }
   }
 
+  Future<void> disconnect() async {
+    if (isConnected.value) {
+      // TODO : Sign out
+    }
+  }
+
   clear() {
     currentAddress.value = "";
     currentChain.value = -1;
