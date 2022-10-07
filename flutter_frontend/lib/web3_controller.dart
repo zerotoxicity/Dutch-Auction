@@ -1,5 +1,7 @@
 import 'dart:html';
 
+import "package:flutter_web3/ethers.dart";
+
 import 'package:get/get.dart';
 import "package:flutter_web3/flutter_web3.dart";
 

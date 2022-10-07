@@ -1,6 +1,8 @@
 // Admin Controller for Web3
 
 import 'package:flutter/material.dart';
+import 'package:flutter_frontend/abi/IAuctionInterface.abi.dart';
+import 'package:flutter_frontend/helper.dart';
 import 'package:flutter_web3/flutter_web3.dart';
 import 'package:get/get.dart';
 
@@ -11,6 +13,7 @@ class AdminController extends GetxController {
   Rx<String> walletAddress = "".obs;
 
   TextEditingController privateKeyEditingController = TextEditingController();
+  TextEditingController contractEditingController = TextEditingController();
 
   void addWallet() async {
     // Assume text is not empty
@@ -25,9 +28,9 @@ class AdminController extends GetxController {
   }
 
   Future<void> startAuction() async {
-    final result = await adminWallet!.signTransaction(
-      TransactionRequest(),
-    );
-    print('result: $result');
+    final contract =
+        Contract(kAuctionContractAddress, kAuctionInterfaceABI, adminWallet);
+    final result = await contract.send("startAuction");
+    print(result.hash);
   }
 }
