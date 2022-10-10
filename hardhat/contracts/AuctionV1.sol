@@ -1,6 +1,6 @@
 pragma solidity 0.8.16;
 
-import "./EnumDeclaration.sol";
+import "./Constants.sol";
 import "./libraries/IterableMapping.sol";
 import "./interfaces/IKetchupToken.sol";
 import "./interfaces/IERC20.sol";
@@ -20,12 +20,6 @@ contract AuctionV1 is
     OwnableUpgradeable
 {
     using IterableMapping for IterableMapping.Map;
-
-    //Starting price: 1 ETH/KCH
-    uint256 constant STARTING_PRICE = 1e18;
-    uint256 constant MULTIPLIER = 1e12;
-    uint256 constant RESERVED_PRICE = STARTING_PRICE - (20 * 60 * MULTIPLIER);
-    uint256 constant AUCTION_SUPPLY = 1e20;
 
     ///Auction-related variables
     AuctionState private _currentAuctionState;

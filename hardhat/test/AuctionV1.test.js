@@ -59,6 +59,15 @@ describe("📝 Auction Contract", function () {
       .withArgs(true);
   });
 
+  it("🏷 After 20 mins, the final price is the reserve price", async function () {
+    await auctionContract.startAuction();
+    await fastForwardTwentyMins();
+    await auctionContract.checkIfAuctionShouldEnd();
+    expect(await auctionContract.getTokenPrice(0)).to.be.equal(
+      BigInt(1e18 - 20 * 60 * 1e12)
+    );
+  });
+
   it("👴 User is able to bid with 1 wei", async function () {
     await auctionContract.startAuction();
     await auctionContract.insertBid({ value: 1 });

@@ -1,14 +1,8 @@
 # Ketchup Token Dutch Auction
 
----
-
 A dutch auction token sale with reusable smart contract.
 
----
-
 ## Getting Started
-
----
 
 ### Prerequisites
 
