@@ -59,12 +59,12 @@ describe("📝 Auction Contract", function () {
       .withArgs(true);
   });
 
-  it("🏷 After 20 mins, the final price is the reserve price", async function () {
+  it("🏷 After 20 mins, the final price should be equal to the reserve price", async function () {
     await auctionContract.startAuction();
     await fastForwardTwentyMins();
     await auctionContract.checkIfAuctionShouldEnd();
     expect(await auctionContract.getTokenPrice(0)).to.be.equal(
-      BigInt(1e18 - 20 * 60 * 1e12)
+      BigInt(1e18 - 20 * 60 * 1e12) //Formula from Constants.sol
     );
   });
 
@@ -112,10 +112,14 @@ describe("📝 Auction Contract", function () {
     await auctionContract.startAuction();
     const firstAuctionStartTime = await auctionContract.getAuctionStartTime();
     await auctionContract.insertBid({ value: ethers.utils.parseEther("100") });
+
+    //Start 2nd auction
     await auctionContract.startAuction();
     expect(await auctionContract.getAuctionStartTime()).to.be.greaterThan(
       firstAuctionStartTime
     );
+
+    //User only bidded in first auction, expect zero bid value in second auction
     expect(
       await auctionContract.getUserBidAmount(deployer.address)
     ).to.be.equal(0);
