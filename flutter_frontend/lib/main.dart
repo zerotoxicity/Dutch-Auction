@@ -30,28 +30,22 @@ class LoginPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey,
-      appBar: AppBar(
-        actions: [
-          ElevatedButton(
-              onPressed: () {
-                c.connect().then((_) async {
-                  const GetSnackBar(
-                    title: "Authentication",
-                    message: "Login successfully!",
-                    duration: Duration(seconds: 2),
-                  ).show();
-                  await Get.offAll(DashboardScreen());
-                });
-              },
-              child: Obx(
-                () => Text(c.isConnected.value ? "Disconnect" : "Connect"),
-              ))
-        ],
-      ),
+      backgroundColor: Colors.grey[100],
       body: Center(
-        child: Obx(() => SelectableText(
-            c.isConnected.value ? c.currentAddress.value : "Not connected")),
+        child: OutlinedButton(
+            onPressed: () {
+              c.connect().then((_) async {
+                const GetSnackBar(
+                  title: "Authentication",
+                  message: "Login successfully!",
+                  duration: Duration(seconds: 2),
+                ).show();
+                await Get.offAll(DashboardScreen());
+              });
+            },
+            child: Obx(
+              () => Text(c.isConnected.value ? "Disconnect" : "Connect"),
+            )),
       ),
     );
   }

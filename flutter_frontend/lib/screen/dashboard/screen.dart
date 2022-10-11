@@ -1,7 +1,10 @@
+import 'dart:html';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_frontend/screen/admin/screen.dart';
 import 'package:flutter_frontend/screen/dashboard/controller.dart';
+import 'package:flutter_frontend/style.dart';
 import 'package:flutter_frontend/web3_controller.dart';
 import 'package:get/get.dart';
 
@@ -30,9 +33,14 @@ class DashboardScreen extends StatelessWidget {
       length: tabs.length,
       child: Scaffold(
         backgroundColor: Colors.blue[50],
+        floatingActionButton: FloatingActionButton(
+          onPressed: _floatingActionHandler,
+          child: const Icon(Icons.add),
+          tooltip: "Add new Auction Contract",
+        ),
         appBar: AppBar(
           bottom: const TabBar(tabs: tabs),
-          title: const Text("Dashboard"),
+          title: const Text("Ketchup ICO"),
           actions: [
             Obx(() => Center(
                 child: Text(
@@ -53,44 +61,88 @@ class DashboardScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: "Refresh Auction",
-              onPressed: controller.fetchAuctionFromBlockchain,
+              onPressed: controller.refreshAuctionState,
             )
           ],
         ),
         body: TabBarView(children: [
           Container(
             color: Colors.amber[50],
-            padding: const EdgeInsets.all(8.0),
-            child: Center(
-              child: ListView(
-                children: [
-                  auctionNoWidget,
-                  timestampWidget,
-                  countdownWidget,
-                  currentBidPriceWidget,
-                  tokenSupplyWidget,
-                  auctionStateWidget,
-                  contractAddressWidget(
-                    "Auction Address: ",
-                    controller.auctionContract.address,
-                    controller.auctionAddressEditingController,
-                  ),
-                  contractAddressWidget(
-                    "Token Address: ",
-                    controller.tokenContract.contract.address,
-                    controller.tokenAddressEditingController,
-                  ),
-                  ElevatedButton(
-                    child: const Text("Submit"),
-                    onPressed: controller.updateAddress,
-                  ),
-                  submitBidWdiget,
-                ],
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 80),
+            child: ListView(
+              children: [
+                auctionStateWidget,
+                auctionNoWidget,
+                timestampWidget,
+                countdownWidget,
+                currentBidPriceWidget,
+                tokenSupplyWidget,
+                submitBidWdiget,
+                _textLayout(
+                  "Ketchup Balance (KCH): ",
+                  controller.userKCHBalance,
+                ),
+                TextButton(
+                  onPressed: () async {
+                    if (controller.auctionState.value == 1) {
+                      // await controller.checkAuctionShouldEnd();
+                      await controller.withdrawTokens();
+                      await controller.updateUserKCHBalance();
+                    } else {
+                      Get.snackbar("Withdraw Failed",
+                          "Auction has not ended. Click to refresh");
+                    }
+                    // Withdraw token from auction address
+                  },
+                  child: const Text("Withdraw Token"),
+                )
+              ],
             ),
           ),
           AdminScreen()
         ]),
+      ),
+    );
+  }
+
+  _floatingActionHandler() async {
+    await Get.bottomSheet(
+      Material(
+        child: Container(
+          padding: const EdgeInsets.all(8),
+          color: Colors.orange[100],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("Add new Auction Contract"),
+              contractAddressWidget(
+                "Auction Address: ",
+                controller.auctionContract.address,
+                controller.auctionAddressEditingController,
+              ),
+              contractAddressWidget(
+                "Token Address: ",
+                controller.tokenContract.contract.address,
+                controller.tokenAddressEditingController,
+              ),
+              ElevatedButton(
+                child: const Text("Submit"),
+                onPressed: () async {
+                  await controller.updateAddress();
+                  final snackbar = GetSnackBar(
+                    title: "Update new contract",
+                    message:
+                        "Auction address: ${controller.auctionContract.address} \n Token address: ${controller.tokenContract.contract.address}",
+                    duration: const Duration(seconds: 3),
+                  );
+                  Get.back();
+                  snackbar.show();
+                },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -126,30 +178,41 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  /// Convert timestamp to human readable string
-  String _convertTimestampToReadable(int timestamp) {
-    final _dt =
-        DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
-    return "${_dt.day}/${_dt.month}/${_dt.year}";
-  }
-
-  String _countdownHandler(int seconds) {
-    if (seconds > 59 || seconds < -59) {
-      return "${(seconds / 60).round()} mins ${(seconds % 60.round())} seconds";
-    } else {
-      return "$seconds seconds";
-    }
-  }
-
-  Widget get timestampWidget => Obx(
-        () => SelectableText(
-            "Start time: ${_convertTimestampToReadable(controller.startTime.value!.toInt())}"),
+  Widget get timestampWidget => _textLayout(
+        "Start time: ",
+        controller.startTime,
       );
 
-  Widget get countdownWidget => Obx(
-        () => SelectableText(
-            "Time left: ${_countdownHandler(controller.countdownTimerInSeconds.value)}"),
+  Widget get countdownWidget => _textLayout(
+        "Time left: ",
+        controller.countdownTimerInSeconds,
       );
+
+  Widget _textLayout(
+    String title,
+    Rx rxBody, {
+    TextStyle? headingStyle,
+    TextStyle? bodyStyle,
+  }) {
+    return Container(
+      margin: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          SelectableText(
+            title,
+            style: headingStyle ?? Style.headingTextStyle,
+          ),
+          Obx(
+            () => SelectableText(
+              rxBody.value,
+              style: bodyStyle ?? Style.bodyTextStyle,
+            ),
+          )
+        ],
+      ),
+    );
+  }
 
   Widget get auctionNoWidget => Container(
         padding: const EdgeInsets.all(8),
@@ -160,60 +223,90 @@ class DashboardScreen extends StatelessWidget {
             () => SelectableText("Auction No: ${controller.auctionNo.value}"),
           ),
           IconButton(
-              onPressed: controller.fetchAuctionNo,
-              icon: const Icon(Icons.refresh))
+            onPressed: controller.fetchAuctionNo,
+            icon: const Icon(Icons.refresh),
+          )
         ]),
       );
 
-  Widget get currentBidPriceWidget => Obx(
-        () => SelectableText("Current Bid Price: " +
-            controller.currentBidPrice.value.toString()),
+  Widget get currentBidPriceWidget => _textLayout(
+        "Current Bid Price (ETH):",
+        controller.currentBidPrice,
       );
 
-  Widget get auctionStateWidget => Card(
-        child: Obx((() => SelectableText(
-            "Auction State: ${kAuctionState[controller.auctionState.value!]}"))),
+  Widget get auctionStateWidget => Obx((() {
+        int _state = controller.auctionState.value;
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          margin: const EdgeInsets.symmetric(vertical: 8),
+          alignment: Alignment.center,
+          color: _auctionStateColor(_state),
+          child: SelectableText(kAuctionState[_state]!),
+        );
+      }));
+
+  Color _auctionStateColor(int state) {
+    if (state == 0) return Colors.greenAccent;
+    if (state == 1) return Colors.blue;
+    if (state == 2) return Colors.lightBlue;
+    return Colors.grey;
+  }
+
+  Widget get tokenSupplyWidget => _textLayout(
+        "Total Supply: ",
+        controller.tokenSupply,
       );
-  Widget get tokenSupplyWidget => Obx(
-      (() => SelectableText("Total Supply: ${controller.tokenSupply.value}")));
 
   Widget get submitBidWdiget => Container(
         constraints: BoxConstraints(maxWidth: Get.width * 0.6),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("Bid Amount"),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: TextField(
-                  decoration: const InputDecoration(
-                      border: OutlineInputBorder(), hintText: "in ether"),
-                  controller: controller.bidAmountEditingController,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                    TextInputFormatter.withFunction((oldValue, newValue) {
-                      try {
-                        final text = newValue.text;
-                        if (text.isNotEmpty) double.parse(text);
-                        return newValue;
-                      } catch (e) {
-                        print("input error: ${e.toString()}");
-                      }
-                      return oldValue;
-                    }),
-                  ],
+        child: Obx(() => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text("Bid Amount"),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: TextField(
+                      enabled: controller.auctionState.value == 0,
+                      decoration: const InputDecoration(
+                          border: OutlineInputBorder(), hintText: "in ether"),
+                      controller: controller.bidAmountEditingController,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                        TextInputFormatter.withFunction((oldValue, newValue) {
+                          try {
+                            final text = newValue.text;
+                            if (text.isNotEmpty) double.parse(text);
+                            return newValue;
+                          } catch (e) {
+                            print("input error: ${e.toString()}");
+                          }
+                          return oldValue;
+                        }),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                await controller.submitBid();
-              },
-              child: const Text("Submit"),
-            ),
-          ],
-        ),
+                ElevatedButton(
+                  onPressed: controller.auctionState.value == 0 ||
+                          controller
+                              .auctionAddressEditingController.text.isNotEmpty
+                      ? () async {
+                          final bidAmount =
+                              (await controller.submitBid()).toDouble() / 1e18;
+                          GetSnackBar(
+                            title: "Bid Successful",
+                            message:
+                                "Amount: ${bidAmount.toPrecision(4).toString()} ETH",
+                            duration: const Duration(seconds: 3),
+                          ).show();
+                          await controller.refreshAuctionState();
+                        }
+                      : null,
+                  child: const Text("Submit"),
+                ),
+              ],
+            )),
       );
 }
