@@ -49,6 +49,10 @@ class AdminController extends GetxController {
       adminWallet,
     );
     print("Auction Contract Address @ $_auctionAddress");
+
+    auctionContract!.on("Receiving", (a, b) {
+      print("Listener<Receiving>: $a, ${dartify(b)}");
+    });
   }
 
   Future<String?> startAuction() async {
