@@ -11,18 +11,15 @@ A dutch auction token sale with reusable smart contract.
 
 ### Installation
 
-1. Clone the repo
-   `git clone [https://github.com/zerotoxicity/cz4153]`
-
-2. Install packages
+1. Install packages
 
 ```
 cd hardhat
 yarn install
 ```
 
-3. Start a local node
+2. Start a local node
    `yarn hardhat node`
 
-4. Deploy the smart contract onto localhost network
+3. Deploy the smart contract onto localhost network
    ` yarn deploy --network localhost`

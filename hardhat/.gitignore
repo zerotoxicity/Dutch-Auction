@@ -3,7 +3,7 @@ coverage
 coverage.json
 typechain
 typechain-types
-.openzeppelin/*
+.openzeppelin
 
 #Hardhat files
 cache

@@ -154,7 +154,11 @@ describe("📝 Auction Contract", function () {
       await auctionContract.getTotalBiddedAmount(auctionContract.getAuctionNo())
     ).to.be.equal(BigInt(1e18));
     await fastForwardTwentyMins();
+
+    //Contract would burn the unsold tokens
     await auctionContract.checkIfAuctionShouldEnd();
+
+    //After bidder withdraw KCH, there should be no KCH left in the contract.
     await auctionContract.withdraw();
     expect(
       await ketchupContract.balanceOf(auctionContract.address)
@@ -200,9 +204,12 @@ describe("📝 Auction Contract", function () {
 
   it("👩 Owner is able to withdraw all of the eth in the contract", async function () {
     await auctionContract.startAuction();
+
     await auctionContract
       .connect(accounts[1])
       .insertBid({ value: ethers.utils.parseEther("120") });
+
+    //Owner should withdraw only 100 eth, remaining 20 eth would be refunded
     expect(await auctionContract.withdrawAll())
       .to.emit(auctionContract, "Receiving")
       .withArgs(AUCTION_SUPPLY);
