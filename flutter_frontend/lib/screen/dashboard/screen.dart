@@ -229,7 +229,7 @@ class DashboardScreen extends StatelessWidget {
 
   Widget get tokenSupplyWidget => textLayout(
         "Total Supply: ",
-        controller.tokenSupply,
+        controller.tokenTotalSupply,
       );
 
   Widget get submitBidWdiget => Container(

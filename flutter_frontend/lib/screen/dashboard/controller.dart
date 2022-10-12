@@ -14,7 +14,8 @@ class DashboardController extends GetxController {
   Rx<BigInt> auctionNo = Rx(BigInt.from(-1));
   Rx<int> auctionState = Rx(-1);
   Rx<BigInt> tokenPrice = Rx(BigInt.from(-1));
-  Rx<String> tokenSupply = Rx("0");
+  Rx<String> tokenTotalSupply = Rx("0");
+  Rx<String> auctionTokenSupply = Rx("0");
   Rx<String> startTime = Rx("");
   Rx<String> countdownTimerInSeconds = Rx("0");
   Rx<String> userKCHBalance = Rx("0");
@@ -51,13 +52,13 @@ class DashboardController extends GetxController {
   void onReady() async {
     super.onReady();
     refreshAuctionState();
-    auctionContract.on("ShouldAuctionEnd", (shouldEnded, a) {
-      print("Listener<ShouldAuctionEnd>: $shouldEnded, ${dartify(a)}");
-      shouldHaveEnded.value = shouldEnded;
-    });
-    auctionContract.on("Receiving", (amount, a) {
-      print("Listener<Receiving>: $amount, ${dartify(a)}");
-    });
+    // auctionContract.on("ShouldAuctionEnd", (shouldEnded, a) {
+    //   print("Listener<ShouldAuctionEnd>: $shouldEnded, ${dartify(a)}");
+    //   shouldHaveEnded.value = shouldEnded;
+    // });
+    // auctionContract.on("Receiving", (amount, a) {
+    //   print("Listener<Receiving>: $amount, ${dartify(a)}");
+    // });
   }
 
   Future<void> refreshAuctionState() async {
@@ -163,6 +164,8 @@ class DashboardController extends GetxController {
       web3dart.EtherUnit.wei,
       valueInWei.toInt(),
     ).getInWei;
+    print("submitBid() amount: $bidAmount");
+
     try {
       final tx = await auctionContract.send(
         "insertBid",
@@ -196,7 +199,12 @@ class DashboardController extends GetxController {
     final value = await tokenContract.totalSupply;
     print("Token Supply: $value");
     // TODO: add a supply converter
-    tokenSupply.value = bigIntToString(value);
+    tokenTotalSupply.value = bigIntToString(value);
+  }
+
+  void fetchAuctionTokenSupply() async {
+    final value = await auctionContract.call<BigInt>("getAuctionSupply");
+    auctionTokenSupply.value = bigIntToString(value);
   }
 
   // Calculate by adding startime + auction duration
