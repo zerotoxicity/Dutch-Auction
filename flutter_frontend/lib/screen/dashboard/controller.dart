@@ -16,7 +16,7 @@ class DashboardController extends GetxController {
   Rx<BigInt> tokenPrice = Rx(BigInt.from(-1));
   Rx<String> tokenTotalSupply = Rx("0");
   Rx<String> auctionTokenSupply = Rx("0");
-  Rx<String> startTime = Rx("");
+  Rx<String> startTime = Rx("NIL");
   Rx<String> countdownTimerInSeconds = Rx("0");
   Rx<String> userKCHBalance = Rx("0");
   Rx<bool> shouldHaveEnded = RxBool(true);
@@ -29,55 +29,56 @@ class DashboardController extends GetxController {
   late Contract auctionContract;
   late ContractERC20 tokenContract;
 
+  String auctionAddress = kAuctionContractAddress;
+  String tokenAddress = kTokenAddress;
+  Timer? countdownTimer;
+
   // Details for the admin
   Rx<String> userAddress = Rx("");
 
   @override
   void onInit() {
+    super.onInit();
     provider!
         .getSigner()
         .getAddress()
         .then((value) => userAddress.value = value);
-
-    super.onInit();
-    auctionContract = Contract(
-      kAuctionContractAddress,
-      kAuctionInterfaceABI,
-      provider!.getSigner(),
-    );
-    tokenContract = ContractERC20(kTokenAddress, provider!.getSigner());
+    initTokenContract();
+    initAuctionContract();
   }
 
   @override
-  void onReady() async {
+  void onReady() {
     super.onReady();
-    refreshAuctionState();
-    // auctionContract.on("ShouldAuctionEnd", (shouldEnded, a) {
-    //   print("Listener<ShouldAuctionEnd>: $shouldEnded, ${dartify(a)}");
-    //   shouldHaveEnded.value = shouldEnded;
-    // });
-    // auctionContract.on("Receiving", (amount, a) {
-    //   print("Listener<Receiving>: $amount, ${dartify(a)}");
-    // });
+    fetchTokenSupply();
   }
 
+  void initTokenContract() =>
+      tokenContract = ContractERC20(tokenAddress, provider!.getSigner());
+
+  void initAuctionContract() => auctionContract = Contract(
+        auctionAddress,
+        kAuctionInterfaceABI,
+        provider!.getSigner(),
+      );
+
   Future<void> refreshAuctionState() async {
-    await fetchAuctionNo().then((_) {
-      fetchAuctionState();
-      fetchBidPrice();
-      fetchTokenSupply();
-    });
+    fetchAuctionState();
+
+    await fetchAuctionNo();
+    fetchAuctionTokenSupply();
+    fetchBidPrice();
+    clearTimer();
     await fetchAuctionStartTime().then((value) {
       if (value != null) {
         startTime.value = _convertTimestampToReadable(value.toInt());
         final now = DateTime.now();
-
         final start =
             DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
 
         if (!now.difference(start).isNegative && value.toInt() > 0) {
           final deadline = calculateDeadline(value.toInt(), kAuctionDuration);
-          deadlineCountdown(
+          countdownTimer = deadlineCounter(
             deadline,
             countdownTimerInSeconds,
           );
@@ -89,17 +90,12 @@ class DashboardController extends GetxController {
   // Reassign contract object with new instance
   Future<void> updateAddress() async {
     if (auctionAddressEditingController.text.isNotEmpty) {
-      auctionContract = Contract(
-        auctionAddressEditingController.text,
-        kAuctionInterfaceABI,
-        provider!.getSigner(),
-      );
+      auctionAddress = auctionAddressEditingController.text;
+      initAuctionContract();
     }
     if (tokenAddressEditingController.text.isNotEmpty) {
-      tokenContract = ContractERC20(
-        tokenAddressEditingController.text,
-        provider!.getSigner(),
-      );
+      tokenAddress = tokenAddressEditingController.text;
+      initTokenContract();
     }
     refreshAuctionState();
   }
@@ -203,7 +199,9 @@ class DashboardController extends GetxController {
   }
 
   void fetchAuctionTokenSupply() async {
+    print("getAuctionSupply()");
     final value = await auctionContract.call<BigInt>("getAuctionSupply");
+    print("getAuctionSupply(): $value");
     auctionTokenSupply.value = bigIntToString(value);
   }
 
@@ -221,7 +219,7 @@ class DashboardController extends GetxController {
   }
 
   /// Calculate difference between deadline relative to current time
-  Timer deadlineCountdown(
+  Timer deadlineCounter(
     DateTime deadline,
     Rx<String> countdownTimer,
   ) {
@@ -237,6 +235,14 @@ class DashboardController extends GetxController {
         }
       }
     });
+  }
+
+  void clearTimer() {
+    countdownTimerInSeconds.value = "0";
+    if (countdownTimer == null) return;
+    if (countdownTimer!.isActive) {
+      countdownTimer!.cancel();
+    }
   }
 
   String _countdownHandler(int seconds) {

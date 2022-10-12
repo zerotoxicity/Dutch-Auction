@@ -22,45 +22,48 @@ class AdminController extends GetxController {
   TextEditingController contractEditingController = TextEditingController();
 
   @override
-  void onReady() {
+  void onReady() async {
     super.onReady();
-    ever(adminWallet.obs, (Wallet? wallet) {
-      if (wallet != null) {
-        print("admin wallet address: ${wallet.address}");
-      }
-    });
+    // once(adminWallet.obs, (Wallet? wallet) {
+    //   if (wallet != null) {
+    //     initTokenContract();
+    //     initAuctionContract();
+    //   }
+    // }, condition: adminWallet != null);
+    await addWallet(kPrivateKey);
+    initTokenContract();
+    initAuctionContract();
+    fetchEtherBalance();
+    fetchKCHBalance();
   }
 
-  Future<void> addWallet() async {
+  Future<void> addWallet(String privateKey) async {
     // Assume text is not empty
-    adminWallet =
-        Wallet(privateKeyEditingController.text).connect(JsonRpcProvider());
+    adminWallet = Wallet(privateKey).connect(JsonRpcProvider());
 
     // Connect to localhost
     walletAddress.value = await adminWallet!.getAddress();
-    privateKeyEditingController.clear();
-
     isLogin.value = true;
   }
 
   void initAuctionContract() {
+    print("init auction contract");
     final _auctionAddress =
         Get.find<DashboardController>().auctionContract.address;
+
     auctionContract = Contract(
       _auctionAddress,
       kAuctionInterfaceABI,
       adminWallet,
     );
-    print("Auction Contract Address @ $_auctionAddress");
-
-    auctionContract!.on("Receiving", (a, b) {
-      print("Listener<Receiving>: $a, ${dartify(b)}");
-    });
+    print("Auction Contract Address: $_auctionAddress");
   }
 
   void initTokenContract() {
+    print("init token contract");
     final _tokenAddress =
         Get.find<DashboardController>().tokenContract.contract.address;
+    print("token contract address: $_tokenAddress");
     tokenContract = ContractERC20(_tokenAddress, adminWallet);
   }
 

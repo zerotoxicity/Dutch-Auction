@@ -74,29 +74,46 @@ class DashboardScreen extends StatelessWidget {
               children: [
                 auctionStateWidget,
                 auctionNoWidget,
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      onPressed: () async {
+                        await showDialog(
+                          context: context,
+                          builder: (context) => submitBidWdiget,
+                        );
+                      },
+                      tooltip: "Bid",
+                      icon: const Icon(Icons.bolt),
+                    ),
+                    const Divider(),
+                    IconButton(
+                      tooltip: "Withdraw KCH",
+                      icon: const Icon(Icons.output),
+                      onPressed: () async {
+                        if (controller.auctionState.value == 1) {
+                          // await controller.checkAuctionShouldEnd();
+                          await controller.withdrawTokens();
+                          await controller.updateUserKCHBalance();
+                        } else {
+                          const GetSnackBar(
+                            title: "Withdraw Failed",
+                            message: "Auction has not ended. Click to refresh",
+                          ).show();
+                        }
+                        // Withdraw token from auction address
+                      },
+                    )
+                  ],
+                ),
+                auctionTokenSupplyWidget,
+                userKCHBalanceWidget,
                 timestampWidget,
                 countdownWidget,
                 currentBidPriceWidget,
                 tokenSupplyWidget,
-                submitBidWdiget,
-                textLayout(
-                  "Ketchup Balance (KCH): ",
-                  controller.userKCHBalance,
-                ),
-                TextButton(
-                  onPressed: () async {
-                    if (controller.auctionState.value == 1) {
-                      // await controller.checkAuctionShouldEnd();
-                      await controller.withdrawTokens();
-                      await controller.updateUserKCHBalance();
-                    } else {
-                      Get.snackbar("Withdraw Failed",
-                          "Auction has not ended. Click to refresh");
-                    }
-                    // Withdraw token from auction address
-                  },
-                  child: const Text("Withdraw Token"),
-                )
+                // submitBidWdiget,
               ],
             ),
           ),
@@ -179,6 +196,16 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
+  Widget get userKCHBalanceWidget => textLayout(
+        "Ketchup Balance (KCH): ",
+        controller.userKCHBalance,
+      );
+
+  Widget get auctionTokenSupplyWidget => textLayout(
+        "Auction Token Supply: ",
+        controller.auctionTokenSupply,
+      );
+
   Widget get timestampWidget => textLayout(
         "Start time: ",
         controller.startTime,
@@ -232,56 +259,49 @@ class DashboardScreen extends StatelessWidget {
         controller.tokenTotalSupply,
       );
 
-  Widget get submitBidWdiget => Container(
-        constraints: BoxConstraints(maxWidth: Get.width * 0.6),
-        child: Obx(() => Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text("Bid Amount"),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      enabled: controller.auctionState.value == 0,
-                      decoration: const InputDecoration(
-                          border: OutlineInputBorder(), hintText: "in ether"),
-                      controller: controller.bidAmountEditingController,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-                        TextInputFormatter.withFunction((oldValue, newValue) {
-                          try {
-                            final text = newValue.text;
-                            if (text.isNotEmpty) double.parse(text);
-                            return newValue;
-                          } catch (e) {
-                            print("input error: ${e.toString()}");
-                          }
-                          return oldValue;
-                        }),
-                      ],
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: controller.auctionState.value == 0 ||
-                          controller
-                              .auctionAddressEditingController.text.isNotEmpty
-                      ? () async {
-                          final bidAmount =
-                              (await controller.submitBid()).toDouble() / 1e18;
-                          GetSnackBar(
-                            title: "Bid Successful",
-                            message:
-                                "Amount: ${bidAmount.toPrecision(4).toString()} ETH",
-                            duration: const Duration(seconds: 3),
-                          ).show();
-                          await controller.refreshAuctionState();
-                        }
-                      : null,
-                  child: const Text("Submit"),
-                ),
-              ],
-            )),
+  Widget get submitBidWdiget => AlertDialog(
+        title: Text("Bid Amount", style: Style.headingTextStyle),
+        actions: [
+          ElevatedButton(
+            onPressed: controller.auctionState.value == 0 ||
+                    controller.auctionAddressEditingController.text.isNotEmpty
+                ? () async {
+                    final bidAmount =
+                        (await controller.submitBid()).toDouble() / 1e18;
+                    final sb = GetSnackBar(
+                      title: "Bid Successful",
+                      message:
+                          "Amount: ${bidAmount.toPrecision(4).toString()} ETH",
+                      duration: const Duration(seconds: 3),
+                    );
+                    await controller.refreshAuctionState();
+                    Get.back();
+                    sb.show();
+                  }
+                : null,
+            child: const Text("Submit"),
+          ),
+        ],
+        content: Obx(
+          () => TextField(
+            enabled: controller.auctionState.value == 0,
+            decoration: const InputDecoration(
+                border: OutlineInputBorder(), hintText: "in ether"),
+            controller: controller.bidAmountEditingController,
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+              TextInputFormatter.withFunction((oldValue, newValue) {
+                try {
+                  final text = newValue.text;
+                  if (text.isNotEmpty) double.parse(text);
+                  return newValue;
+                } catch (e) {
+                  print("input error: ${e.toString()}");
+                }
+                return oldValue;
+              }),
+            ],
+          ),
+        ),
       );
 }

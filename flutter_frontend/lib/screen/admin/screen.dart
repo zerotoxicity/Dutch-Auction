@@ -35,7 +35,6 @@ class AdminScreen extends StatelessWidget {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    await controller.addWallet();
                     controller.fetchEtherBalance();
                     controller.initAuctionContract();
                     controller.initTokenContract();
@@ -53,29 +52,32 @@ class AdminScreen extends StatelessWidget {
               textLayout("Wallet Address: ", controller.walletAddress),
               textLayout("KCH Balance: ", controller.kchBalance),
               textLayout("ETH Balance: ", controller.etherBalance),
-              ElevatedButton(
-                onPressed: () async {
-                  final hash = await controller.startAuction();
-                  if (hash != null) {
-                    GetSnackBar(
-                      title: "Success",
-                      message: "Auction Started. Transaction hash: $hash",
-                      duration: const Duration(seconds: 2),
-                    ).show();
-                  } else {
-                    await Get.snackbar("Error", "Start auction failed").show();
-                  }
-                },
-                child: const Text("Start Auction"),
-              ),
-              OutlinedButton(
-                onPressed: () async => await controller.withdrawAll(),
-                child: const Text("Withdraw Tokens"),
-              ),
+              startAuctionWidget,
+              withdrawAllTokenWidget
             ],
           );
         }),
       ),
     );
   }
+
+  Widget get startAuctionWidget => ElevatedButton(
+        onPressed: () async {
+          final hash = await controller.startAuction();
+          if (hash != null) {
+            GetSnackBar(
+              title: "Success",
+              message: "Auction Started. Transaction hash: $hash",
+              duration: const Duration(seconds: 2),
+            ).show();
+          } else {
+            await Get.snackbar("Error", "Start auction failed").show();
+          }
+        },
+        child: const Text("Start Auction"),
+      );
+  Widget get withdrawAllTokenWidget => OutlinedButton(
+        onPressed: () async => await controller.withdrawAll(),
+        child: const Text("Withdraw Tokens"),
+      );
 }
