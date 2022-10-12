@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_frontend/screen/admin/controller.dart';
+import 'package:flutter_frontend/widget.dart';
 import 'package:get/get.dart';
 
 class AdminScreen extends StatelessWidget {
@@ -35,7 +36,10 @@ class AdminScreen extends StatelessWidget {
                 ElevatedButton(
                   onPressed: () async {
                     await controller.addWallet();
+                    controller.fetchEtherBalance();
                     controller.initAuctionContract();
+                    controller.initTokenContract();
+                    controller.fetchKCHBalance();
                   },
                   child: const Text("Add Wallet"),
                 )
@@ -46,8 +50,9 @@ class AdminScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.max,
             children: [
-              Obx((() => Text("Address: ${controller.walletAddress}"))),
-              const SizedBox(height: 8),
+              textLayout("Wallet Address: ", controller.walletAddress),
+              textLayout("KCH Balance: ", controller.kchBalance),
+              textLayout("ETH Balance: ", controller.etherBalance),
               ElevatedButton(
                 onPressed: () async {
                   final hash = await controller.startAuction();
@@ -64,9 +69,7 @@ class AdminScreen extends StatelessWidget {
                 child: const Text("Start Auction"),
               ),
               OutlinedButton(
-                onPressed: () async {
-                  await controller.withdrawAll();
-                },
+                onPressed: () async => await controller.withdrawAll(),
                 child: const Text("Withdraw Tokens"),
               ),
             ],

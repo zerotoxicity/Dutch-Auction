@@ -11,9 +11,12 @@ import 'package:get/get.dart';
 class AdminController extends GetxController {
   RxBool isLogin = false.obs;
   Rx<String> walletAddress = "".obs;
+  Rx<String> etherBalance = Rx("0");
+  Rx<String> kchBalance = Rx("0");
 
   Wallet? adminWallet;
   Contract? auctionContract;
+  ContractERC20? tokenContract;
 
   TextEditingController privateKeyEditingController = TextEditingController();
   TextEditingController contractEditingController = TextEditingController();
@@ -53,6 +56,24 @@ class AdminController extends GetxController {
     auctionContract!.on("Receiving", (a, b) {
       print("Listener<Receiving>: $a, ${dartify(b)}");
     });
+  }
+
+  void initTokenContract() {
+    final _tokenAddress =
+        Get.find<DashboardController>().tokenContract.contract.address;
+    tokenContract = ContractERC20(_tokenAddress, adminWallet);
+  }
+
+  Future<void> fetchEtherBalance() async {
+    if (adminWallet == null) return;
+    final ether = await adminWallet!.getBalance();
+    etherBalance.value = bigIntToString(ether);
+  }
+
+  Future<void> fetchKCHBalance() async {
+    if (tokenContract == null) return;
+    final kch = await tokenContract!.balanceOf(walletAddress.value);
+    kchBalance.value = bigIntToString(kch);
   }
 
   Future<String?> startAuction() async {

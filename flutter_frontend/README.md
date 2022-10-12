@@ -1,12 +1,24 @@
 # flutter_frontend
 
-A new Flutter project.
+Frontend to interact with web3 DApps. More specifically for KCH ICO Dutch Auction for CZ4153 Blockchain Project.
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+- Prerequisite:
+  - Have flutter installed. Version used 2.10.5
+  - Browser with Metamask extension installed
 
-A few resources to get you started if this is your first Flutter project:
+Note: This example assumes you already have hardhat (or equivalnent) installed
+
+## Install dependencies
+
+1. `cd` to root directory of the flutter app
+2. Run `flutter pub get` to install dependencies
+
+## Run application
+
+1. Run `flutter run -d web-server`
+   - This creates a instance to connect with
 
 - [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
 - [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)

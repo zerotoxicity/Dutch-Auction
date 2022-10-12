@@ -9,6 +9,7 @@ import 'package:flutter_frontend/web3_controller.dart';
 import 'package:get/get.dart';
 
 import '../../helper.dart';
+import '../../widget.dart';
 
 // Shows the current ICO activities, login required
 class DashboardScreen extends StatelessWidget {
@@ -78,7 +79,7 @@ class DashboardScreen extends StatelessWidget {
                 currentBidPriceWidget,
                 tokenSupplyWidget,
                 submitBidWdiget,
-                _textLayout(
+                textLayout(
                   "Ketchup Balance (KCH): ",
                   controller.userKCHBalance,
                 ),
@@ -178,41 +179,15 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget get timestampWidget => _textLayout(
+  Widget get timestampWidget => textLayout(
         "Start time: ",
         controller.startTime,
       );
 
-  Widget get countdownWidget => _textLayout(
+  Widget get countdownWidget => textLayout(
         "Time left: ",
         controller.countdownTimerInSeconds,
       );
-
-  Widget _textLayout(
-    String title,
-    Rx rxBody, {
-    TextStyle? headingStyle,
-    TextStyle? bodyStyle,
-  }) {
-    return Container(
-      margin: const EdgeInsets.all(8),
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        children: [
-          SelectableText(
-            title,
-            style: headingStyle ?? Style.headingTextStyle,
-          ),
-          Obx(
-            () => SelectableText(
-              rxBody.value,
-              style: bodyStyle ?? Style.bodyTextStyle,
-            ),
-          )
-        ],
-      ),
-    );
-  }
 
   Widget get auctionNoWidget => Container(
         padding: const EdgeInsets.all(8),
@@ -229,7 +204,7 @@ class DashboardScreen extends StatelessWidget {
         ]),
       );
 
-  Widget get currentBidPriceWidget => _textLayout(
+  Widget get currentBidPriceWidget => textLayout(
         "Current Bid Price (ETH):",
         controller.currentBidPrice,
       );
@@ -252,7 +227,7 @@ class DashboardScreen extends StatelessWidget {
     return Colors.grey;
   }
 
-  Widget get tokenSupplyWidget => _textLayout(
+  Widget get tokenSupplyWidget => textLayout(
         "Total Supply: ",
         controller.tokenSupply,
       );

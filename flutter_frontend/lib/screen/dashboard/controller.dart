@@ -115,7 +115,7 @@ class DashboardController extends GetxController {
       [auctionNo.value],
     );
     print("Token price: $value");
-    currentBidPrice.value = (value.toDouble() / 1e18).toStringAsFixed(5);
+    currentBidPrice.value = bigIntToString(value);
   }
 
   Future<void> withdrawTokens() async {
@@ -129,7 +129,7 @@ class DashboardController extends GetxController {
   Future<void> updateUserKCHBalance() async {
     final value = await tokenContract.balanceOf(userAddress.value);
     print("user balance: ${value.toInt()}");
-    userKCHBalance.value = (value.toDouble() / 1e18).toString();
+    userKCHBalance.value = bigIntToString(value);
   }
 
   /// Return timestamp of auction start time
@@ -196,7 +196,7 @@ class DashboardController extends GetxController {
     final value = await tokenContract.totalSupply;
     print("Token Supply: $value");
     // TODO: add a supply converter
-    tokenSupply.value = (value.toDouble() / 1e18).toString();
+    tokenSupply.value = bigIntToString(value);
   }
 
   // Calculate by adding startime + auction duration
