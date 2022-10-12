@@ -11,4 +11,9 @@ interface IKetchupToken {
      * @param amount number of token not sold
      */
     function burnRemainingToken(uint256 amount) external;
+
+    /**
+     * Returns the average price of KCH in wei
+     */
+    function getAvgTokenPrice() external view returns (uint256);
 }

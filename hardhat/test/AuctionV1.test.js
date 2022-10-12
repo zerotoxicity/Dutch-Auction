@@ -202,16 +202,21 @@ describe("📝 Auction Contract", function () {
       .withArgs(notZero);
   });
 
-  it("👩 Owner is able to withdraw all of the eth in the contract", async function () {
+  it("💵 Ketchup Token Contract should receive >99 ETH from a sold out auction", async () => {
     await auctionContract.startAuction();
+    await auctionContract.insertBid({ value: AUCTION_SUPPLY });
+    balance = await ethers.provider.getBalance(ketchupContract.address);
+    expect(balance).to.be.greaterThan(BigInt(1e19));
+    expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(
+      BigInt((balance * 1e18) / 1e20)
+    );
+  });
 
-    await auctionContract
-      .connect(accounts[1])
-      .insertBid({ value: ethers.utils.parseEther("120") });
-
-    //Owner should withdraw only 100 eth, remaining 20 eth would be refunded
-    expect(await auctionContract.withdrawAll())
-      .to.emit(auctionContract, "Receiving")
-      .withArgs(AUCTION_SUPPLY);
+  it("💵 Ketchup Token Contract should receive 0 ETH from unbidded auction", async () => {
+    await auctionContract.startAuction();
+    await fastForwardTwentyMins();
+    balance = await ethers.provider.getBalance(ketchupContract.address);
+    expect(balance).to.be.equal(0);
+    expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(0);
   });
 });

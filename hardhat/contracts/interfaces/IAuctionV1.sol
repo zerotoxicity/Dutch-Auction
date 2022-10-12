@@ -82,9 +82,4 @@ interface IAuctionV1 {
      * Caller withdraws KCH tokens and refunds if entitled
      */
     function withdraw() external;
-
-    /**
-     * Owner of the auction contract withdraw all ETH that is in the contract
-     */
-    function withdrawAll() external;
 }

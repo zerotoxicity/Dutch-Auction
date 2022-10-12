@@ -169,17 +169,6 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function withdrawAll() external nonReentrant onlyOwner {
-        require(
-            _currentAuctionState == AuctionState.CLOSED,
-            "Auction is ongoing"
-        );
-        uint256 balance = address(this).balance - _refundAmount;
-        (bool sent, ) = owner().call{value: balance}("");
-        require(sent, "Failed to withdraw");
-    }
-
-    ///@inheritdoc IAuctionV1
     function getAuctionNo() external view returns (uint256) {
         return _auctionNo;
     }
@@ -214,6 +203,11 @@ contract AuctionV1 is
             uint256 leftover = AUCTION_SUPPLY - getSupplyReserved();
             if (leftover > 0)
                 IKetchupToken(_ketchupToken).burnRemainingToken(leftover);
+        }
+        uint256 amountToTransfer = address(this).balance - _refundAmount;
+        if (amountToTransfer > 0) {
+            (bool sent, ) = _ketchupToken.call{value: amountToTransfer}("");
+            require(sent, "Failed to send ETH");
         }
         _auctionNo++;
     }
