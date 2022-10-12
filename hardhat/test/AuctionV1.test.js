@@ -27,196 +27,221 @@ describe("📝 Auction Contract", function () {
     await ketchupContract.transferOwnership(auctionContract.address);
   });
 
-  it("👨 Only owner can start auction", async function () {
-    await expect(auctionContract.connect(accounts[1]).startAuction()).to.be
-      .reverted;
-    await auctionContract.startAuction();
-
-    // Contract should be funded
-    expect(
-      await ketchupContract.balanceOf(auctionContract.address)
-    ).to.be.equal(AUCTION_SUPPLY);
-
-    // Auction state should be 0(Auctionstate.ONGOING)
-    expect(await auctionContract.getAuctionState()).to.equal(0);
+  describe("🏷 Token price", function () {
+    it(" After 20 mins, the final price should be equal to the reserve price", async function () {
+      await auctionContract.startAuction();
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+      expect(await auctionContract.getTokenPrice(0)).to.be.equal(
+        BigInt(1e18 - 20 * 60 * 1e12) //Formula from Constants.sol
+      );
+    });
   });
 
-  it("⏱  Check if auction ends on time", async function () {
-    await expect(auctionContract.checkIfAuctionShouldEnd()).to.be.revertedWith(
-      "Auction is closed."
-    );
-    await auctionContract.startAuction();
+  describe("👨 Start auction", function () {
+    it("Reverts if not started by owner", async function () {
+      await expect(auctionContract.connect(accounts[1]).startAuction()).to.be
+        .reverted;
+    });
+    it("Owner is able to start auction", async function () {
+      await auctionContract.startAuction();
 
-    //20 minutes has not passed, auction should not end
-    await expect(auctionContract.checkIfAuctionShouldEnd())
-      .to.emit(auctionContract, "ShouldAuctionEnd")
-      .withArgs(false);
-    await fastForwardTwentyMins();
+      // Contract should be funded with KCH token
+      expect(
+        await ketchupContract.balanceOf(auctionContract.address)
+      ).to.be.equal(AUCTION_SUPPLY);
 
-    //20 minutes has passed, auction should end
-    await expect(auctionContract.checkIfAuctionShouldEnd())
-      .to.emit(auctionContract, "ShouldAuctionEnd")
-      .withArgs(true);
+      // Auction state should be 0(Auctionstate.ONGOING)
+      expect(await auctionContract.getAuctionState()).to.equal(0);
+    });
+
+    it("Previous auction variables should be resetted", async function () {
+      await auctionContract.startAuction();
+      const firstAuctionStartTime = await auctionContract.getAuctionStartTime();
+      await auctionContract.insertBid({
+        value: ethers.utils.parseEther("100"),
+      });
+
+      //Start 2nd auction
+      await auctionContract.startAuction();
+      expect(await auctionContract.getAuctionStartTime()).to.be.greaterThan(
+        firstAuctionStartTime
+      );
+
+      //User only bidded in first auction, expect zero bid value in second auction
+      expect(
+        await auctionContract.getUserBidAmount(deployer.address)
+      ).to.be.equal(0);
+    });
   });
 
-  it("🏷 After 20 mins, the final price should be equal to the reserve price", async function () {
-    await auctionContract.startAuction();
-    await fastForwardTwentyMins();
-    await auctionContract.checkIfAuctionShouldEnd();
-    expect(await auctionContract.getTokenPrice(0)).to.be.equal(
-      BigInt(1e18 - 20 * 60 * 1e12) //Formula from Constants.sol
-    );
-  });
+  describe("⏱ End auction", function () {
+    it("Reverts when auction is closed", async function () {
+      await expect(auctionContract.checkIfAuctionShouldEnd()).to.be.reverted;
+    });
+    it("Cant end unbidded auction before 20 minutes", async function () {
+      await auctionContract.startAuction();
 
-  it("👴 User is able to bid with 1 wei", async function () {
-    await auctionContract.startAuction();
-    await auctionContract.insertBid({ value: 1 });
-    await fastForwardTwentyMins();
-    await auctionContract.checkIfAuctionShouldEnd();
-    await auctionContract.withdraw();
-    expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
-      BigInt(1)
-    );
-  });
+      //20 minutes has not passed, auction should not end
+      await expect(auctionContract.checkIfAuctionShouldEnd())
+        .to.emit(auctionContract, "ShouldAuctionEnd")
+        .withArgs(false);
+    });
+    it("Ends unbidded auction after 20 minutes have elapsed", async function () {
+      await auctionContract.startAuction();
+      await fastForwardTwentyMins();
+      //20 minutes has passed, auction should end
+      await expect(auctionContract.checkIfAuctionShouldEnd())
+        .to.emit(auctionContract, "ShouldAuctionEnd")
+        .withArgs(true);
+    });
 
-  it("🔁 User is able to insert bid only when the auction is ongoing", async function () {
-    await expect(auctionContract.insertBid({ value: 1 })).to.be.revertedWith(
-      "Auction is closed."
-    );
-    await auctionContract.startAuction();
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
+    it("Bidder is able to withdraw past auction prize", async function () {
+      await auctionContract.startAuction();
 
-    //User should get at least 1e18 KCH for 1e18 Wei(1 ETH)
-    expect(await auctionContract.getSupplyReserved()).to.be.greaterThan(
-      BigInt(1e18)
-    );
-  });
+      //User funds first auction
+      await auctionContract.insertBid({
+        value: ethers.utils.parseEther("100"),
+      });
 
-  it("👶 User is able to bid for whole auction supply", async function () {
-    await auctionContract.startAuction();
+      //Start second auction
+      await auctionContract.startAuction();
 
-    //As time has elapsed since the start of auction, the token price has dropped below 1 eth/token
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("100") });
-    expect(await auctionContract.getAuctionState()).to.be.equal(1);
+      //User is unable to withdraw while an auction is ongoing
+      await expect(auctionContract.withdraw()).to.be.reverted;
 
-    //Therefore, user qualifies for refund
-    await expect(auctionContract.withdraw())
-      .to.emit(auctionContract, "Receiving")
-      .withArgs(notZero);
-    expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
-      AUCTION_SUPPLY
-    );
-  });
+      //End auction
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
 
-  it("🌊 Start auction should have resetted previous auction variables", async function () {
-    await auctionContract.startAuction();
-    const firstAuctionStartTime = await auctionContract.getAuctionStartTime();
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("100") });
+      await auctionContract.withdraw();
+      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+        AUCTION_SUPPLY
+      );
+    });
 
-    //Start 2nd auction
-    await auctionContract.startAuction();
-    expect(await auctionContract.getAuctionStartTime()).to.be.greaterThan(
-      firstAuctionStartTime
-    );
+    it("Leftover tokens should be burnt", async function () {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
+      expect(
+        await auctionContract.getTotalBiddedAmount(
+          auctionContract.getAuctionNo()
+        )
+      ).to.be.equal(BigInt(1e18));
+      await fastForwardTwentyMins();
 
-    //User only bidded in first auction, expect zero bid value in second auction
-    expect(
-      await auctionContract.getUserBidAmount(deployer.address)
-    ).to.be.equal(0);
-  });
+      //Contract would burn the unsold tokens
+      await auctionContract.checkIfAuctionShouldEnd();
 
-  it("⌛️ User is able to withdraw past auction prize", async function () {
-    await auctionContract.startAuction();
+      //After bidder withdraw KCH, there should be no KCH left in the contract.
+      await auctionContract.withdraw();
+      expect(
+        await ketchupContract.balanceOf(auctionContract.address)
+      ).to.be.equal(0);
+    });
 
-    //User funds first auction
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("100") });
+    it("Last bidder should be refunded if demand exceeds supply ", async function () {
+      await auctionContract.startAuction();
 
-    //Start second auction
-    await auctionContract.startAuction();
+      //Insert 120 ETH into the auction
+      for (i = 0; i < 4; i++) {
+        await auctionContract
+          .connect(accounts[i])
+          .insertBid({ value: ethers.utils.parseEther("30") });
+      }
+      //First 3 bidders are not entitled to refunds
+      for (i = 0; i < 3; i++)
+        expect(await auctionContract.connect(accounts[i]).withdraw())
+          .to.emit(auctionContract, "Receiving")
+          .withArgs((x) => x === 0);
 
-    //User is unable to withdraw while an auction is ongoing
-    await expect(auctionContract.withdraw()).to.be.reverted;
-
-    //End auction
-    await fastForwardTwentyMins();
-    await auctionContract.checkIfAuctionShouldEnd();
-
-    await auctionContract.withdraw();
-    expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
-      AUCTION_SUPPLY
-    );
-  });
-
-  it("🔥 Auction should burn leftover tokens", async function () {
-    await auctionContract.startAuction();
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
-    expect(
-      await auctionContract.getTotalBiddedAmount(auctionContract.getAuctionNo())
-    ).to.be.equal(BigInt(1e18));
-    await fastForwardTwentyMins();
-
-    //Contract would burn the unsold tokens
-    await auctionContract.checkIfAuctionShouldEnd();
-
-    //After bidder withdraw KCH, there should be no KCH left in the contract.
-    await auctionContract.withdraw();
-    expect(
-      await ketchupContract.balanceOf(auctionContract.address)
-    ).to.be.equal(0);
-  });
-
-  it("👵 User is able to insert multiple bids", async function () {
-    await auctionContract.startAuction();
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
-    expect(
-      await auctionContract.getTotalBiddedAmount(auctionContract.getAuctionNo())
-    ).to.be.equal(BigInt(50 * 1e18));
-    await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
-    expect(await auctionContract.getTotalBiddedAmount(0)).to.be.equal(
-      AUCTION_SUPPLY
-    );
-    await auctionContract.withdraw();
-    expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
-      AUCTION_SUPPLY
-    );
-  });
-
-  it("💸 Last bidder should be refunded if demand exceeds supply ", async function () {
-    await auctionContract.startAuction();
-
-    //Insert 120 ETH into the auction
-    for (i = 0; i < 4; i++) {
-      await auctionContract
-        .connect(accounts[i])
-        .insertBid({ value: ethers.utils.parseEther("30") });
-    }
-    //First 3 bidders are not entitled to refunds
-    for (i = 0; i < 3; i++)
-      expect(await auctionContract.connect(accounts[i]).withdraw())
+      //Last bidder should get a refund as they overbid by >= 20 ETH
+      expect(await auctionContract.connect(accounts[3]).withdraw())
         .to.emit(auctionContract, "Receiving")
-        .withArgs((x) => x === 0);
+        .withArgs(notZero);
+    });
 
-    //Last bidder should get a refund as they overbid by >= 20 ETH
-    expect(await auctionContract.connect(accounts[3]).withdraw())
-      .to.emit(auctionContract, "Receiving")
-      .withArgs(notZero);
+    it("Ketchup Token Contract should receive >99 ETH from an ended and sold out auction", async () => {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: AUCTION_SUPPLY });
+      balance = await ethers.provider.getBalance(ketchupContract.address);
+      expect(balance).to.be.greaterThan(BigInt(1e19));
+      expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(
+        BigInt((balance * 1e18) / 1e20)
+      );
+    });
+
+    it("Ketchup Token Contract should receive 0 ETH from an ended and unbidded auction", async () => {
+      await auctionContract.startAuction();
+      await fastForwardTwentyMins();
+      balance = await ethers.provider.getBalance(ketchupContract.address);
+      expect(balance).to.be.equal(0);
+      expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(0);
+    });
   });
 
-  it("💵 Ketchup Token Contract should receive >99 ETH from a sold out auction", async () => {
-    await auctionContract.startAuction();
-    await auctionContract.insertBid({ value: AUCTION_SUPPLY });
-    balance = await ethers.provider.getBalance(ketchupContract.address);
-    expect(balance).to.be.greaterThan(BigInt(1e19));
-    expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(
-      BigInt((balance * 1e18) / 1e20)
-    );
-  });
+  describe("👴 Insert bid", function () {
+    it("Reverts when auction is closed", async function () {
+      await expect(auctionContract.insertBid({ value: 1 })).to.be.revertedWith(
+        "Auction is closed."
+      );
+    });
 
-  it("💵 Ketchup Token Contract should receive 0 ETH from unbidded auction", async () => {
-    await auctionContract.startAuction();
-    await fastForwardTwentyMins();
-    balance = await ethers.provider.getBalance(ketchupContract.address);
-    expect(balance).to.be.equal(0);
-    expect(await ketchupContract.getAvgTokenPrice()).to.be.equal(0);
+    it("Able to bid with 1 wei", async function () {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: 1 });
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+      await auctionContract.withdraw();
+      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+        BigInt(1)
+      );
+    });
+
+    it("Able to insert bid only when the auction is ongoing", async function () {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("1") });
+
+      //User should get at least 1e18 KCH for 1e18 Wei(1 ETH)
+      expect(await auctionContract.getSupplyReserved()).to.be.greaterThan(
+        BigInt(1e18)
+      );
+    });
+
+    it("One user is able to bid for whole auction supply", async function () {
+      await auctionContract.startAuction();
+
+      //As time has elapsed since the start of auction, the token price has dropped below 1 eth/token
+      await auctionContract.insertBid({
+        value: ethers.utils.parseEther("100"),
+      });
+      expect(await auctionContract.getAuctionState()).to.be.equal(1);
+
+      //Therefore, user qualifies for refund
+      await expect(auctionContract.withdraw())
+        .to.emit(auctionContract, "Receiving")
+        .withArgs(notZero);
+      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+        AUCTION_SUPPLY
+      );
+    });
+
+    it("User is able to insert multiple bids", async function () {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
+      expect(
+        await auctionContract.getTotalBiddedAmount(
+          auctionContract.getAuctionNo()
+        )
+      ).to.be.equal(BigInt(50 * 1e18));
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("50") });
+      expect(await auctionContract.getTotalBiddedAmount(0)).to.be.equal(
+        AUCTION_SUPPLY
+      );
+      await auctionContract.withdraw();
+      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+        AUCTION_SUPPLY
+      );
+    });
   });
 });
