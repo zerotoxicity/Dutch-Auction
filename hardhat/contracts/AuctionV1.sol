@@ -150,8 +150,13 @@ contract AuctionV1 is
             "Did not bid/Withdrawn"
         );
         uint256 refundValue = _refunds[msg.sender];
-        _refunds[msg.sender] = 0;
-        _refundAmount -= refundValue;
+        if (refundValue != 0) {
+            _refunds[msg.sender] = 0;
+            _refundAmount -= refundValue;
+            (bool sent, ) = msg.sender.call{value: refundValue}("");
+            require(sent, "Failed to withdraw");
+        }
+
         uint256 numOfKetchup;
         for (uint256 i = 0; i < _auctionNo; i++) {
             numOfKetchup +=
@@ -160,8 +165,6 @@ contract AuctionV1 is
             bidders[i].remove(msg.sender);
         }
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
-        (bool sent, ) = msg.sender.call{value: refundValue}("");
-        require(sent, "Failed to withdraw");
         emit Receiving(refundValue);
     }
 
@@ -184,6 +187,11 @@ contract AuctionV1 is
     ///@inheritdoc IAuctionV1
     function getAuctionStartTime() external view returns (uint256) {
         return _auctionStartTime[_auctionNo];
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getAuctionSupply() external pure returns (uint256) {
+        return AUCTION_SUPPLY;
     }
 
     ///@inheritdoc IAuctionV1

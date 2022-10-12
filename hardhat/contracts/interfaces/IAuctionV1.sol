@@ -8,7 +8,7 @@ interface IAuctionV1 {
     event ShouldAuctionEnd(bool value);
 
     /**
-     * Emitted when msg.sender is to receive ETH
+     * Emitted when msg.sender is to refunded ETH
      * @param amount The amount received by msg.sender
      */
     event Receiving(uint256 amount);
@@ -22,6 +22,11 @@ interface IAuctionV1 {
      * Returns auction's start time
      */
     function getAuctionStartTime() external view returns (uint256);
+
+    /**
+     * Returns auction's supply
+     */
+    function getAuctionSupply() external view returns (uint256);
 
     /**
      * Returns auction current state
