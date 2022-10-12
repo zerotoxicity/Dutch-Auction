@@ -6,19 +6,20 @@ import "./interfaces/IKetchupToken.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IAuctionV1.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 /**
  * @title Auction contract V1
  * @author Team Ketchup
  */
 contract AuctionV1 is
-    ReentrancyGuard,
     IAuctionV1,
     Initializable,
     UUPSUpgradeable,
-    OwnableUpgradeable
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable
 {
     using IterableMapping for IterableMapping.Map;
 
@@ -49,13 +50,14 @@ contract AuctionV1 is
     }
 
     receive() external payable {}
-    constructor() ReentrancyGuard() public{}
+
     /**
      * @dev Upgradeable contract constructor
      */
     function initialize(address ketchupToken) public initializer {
         __UUPSUpgradeable_init();
         __Ownable_init();
+        __ReentrancyGuard_init();
         _ketchupToken = ketchupToken;
         _currentAuctionState = AuctionState.CLOSED;
     }
@@ -133,7 +135,7 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function withdraw() nonReentrant() external {
+    function withdraw() external nonReentrant {
         require(
             _currentAuctionState == AuctionState.CLOSED,
             "Auction is not closed"
@@ -164,7 +166,7 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function withdrawAll() nonReentrant() external onlyOwner {
+    function withdrawAll() external nonReentrant onlyOwner {
         require(
             _currentAuctionState == AuctionState.CLOSED,
             "Auction is ongoing"
