@@ -45,26 +45,31 @@ class DashboardController extends GetxController {
         .then((value) => userAddress.value = value);
     initTokenContract();
     initAuctionContract();
-  }
-
-  @override
-  void onReady() {
-    super.onReady();
     fetchTokenSupply();
   }
 
-  void initTokenContract() =>
-      tokenContract = ContractERC20(tokenAddress, provider!.getSigner());
-
-  void initAuctionContract() => auctionContract = Contract(
-        auctionAddress,
-        kAuctionInterfaceABI,
+  void initTokenContract() => tokenContract = ContractERC20(
+        tokenAddress,
         provider!.getSigner(),
       );
 
+  void initAuctionContract() => auctionContract = Contract(
+        auctionAddress,
+        Interface(kAuctionInterfaceABI),
+        provider!.getSigner(),
+      );
+
+  // * Token Contract Functions
+  void fetchTokenSupply() async {
+    final value = await tokenContract.totalSupply;
+    print("Token Supply: $value");
+    // TODO: add a supply converter
+    tokenTotalSupply.value = bigIntToString(value);
+  }
+
   Future<void> refreshAuctionState() async {
     fetchAuctionState();
-
+    updateUserKCHBalance();
     await fetchAuctionNo();
     fetchAuctionTokenSupply();
     fetchBidPrice();
@@ -188,14 +193,6 @@ class DashboardController extends GetxController {
     await tx.wait();
     print("Tx: ${tx.hash}");
     return tx.hash;
-  }
-
-  // * Token Contract Functions
-  void fetchTokenSupply() async {
-    final value = await tokenContract.totalSupply;
-    print("Token Supply: $value");
-    // TODO: add a supply converter
-    tokenTotalSupply.value = bigIntToString(value);
   }
 
   void fetchAuctionTokenSupply() async {

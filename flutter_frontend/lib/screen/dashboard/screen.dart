@@ -72,48 +72,15 @@ class DashboardScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 80),
             child: ListView(
               children: [
+                tokenSupplyWidget,
                 auctionStateWidget,
                 auctionNoWidget,
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconButton(
-                      onPressed: () async {
-                        await showDialog(
-                          context: context,
-                          builder: (context) => submitBidWdiget,
-                        );
-                      },
-                      tooltip: "Bid",
-                      icon: const Icon(Icons.bolt),
-                    ),
-                    const Divider(),
-                    IconButton(
-                      tooltip: "Withdraw KCH",
-                      icon: const Icon(Icons.output),
-                      onPressed: () async {
-                        if (controller.auctionState.value == 1) {
-                          // await controller.checkAuctionShouldEnd();
-                          await controller.withdrawTokens();
-                          await controller.updateUserKCHBalance();
-                        } else {
-                          const GetSnackBar(
-                            title: "Withdraw Failed",
-                            message: "Auction has not ended. Click to refresh",
-                          ).show();
-                        }
-                        // Withdraw token from auction address
-                      },
-                    )
-                  ],
-                ),
+                actionButtonWidget,
                 auctionTokenSupplyWidget,
-                userKCHBalanceWidget,
                 timestampWidget,
                 countdownWidget,
                 currentBidPriceWidget,
-                tokenSupplyWidget,
-                // submitBidWdiget,
+                userKCHBalanceWidget,
               ],
             ),
           ),
@@ -195,6 +162,41 @@ class DashboardScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget get actionButtonWidget => Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            onPressed: () async {
+              await showDialog(
+                context: Get.context!,
+                builder: (context) => submitBidWdiget,
+              );
+            },
+            tooltip: "Bid",
+            icon: const Icon(Icons.bolt),
+          ),
+          const Divider(),
+          IconButton(
+            tooltip: "Withdraw KCH",
+            icon: const Icon(Icons.output),
+            onPressed: () async {
+              await controller.checkAuctionShouldEnd();
+              if (controller.auctionState.value == 1) {
+                await controller.withdrawTokens();
+                await controller.updateUserKCHBalance();
+              } else {
+                const GetSnackBar(
+                  title: "Withdraw Failed",
+                  message: "Auction has not ended. Click to refresh",
+                  duration: Duration(seconds: 3),
+                ).show();
+              }
+              // Withdraw token from auction address
+            },
+          )
+        ],
+      );
 
   Widget get userKCHBalanceWidget => textLayout(
         "Ketchup Balance (KCH): ",

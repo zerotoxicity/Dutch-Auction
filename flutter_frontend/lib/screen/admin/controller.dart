@@ -1,11 +1,13 @@
 // Admin Controller for Web3
 
 import 'package:flutter/material.dart';
-import 'package:flutter_frontend/abi/IAuctionInterface.abi.dart';
+import 'package:flutter_frontend/abi/ikch_token_interface.dart';
 import 'package:flutter_frontend/helper.dart';
 import 'package:flutter_frontend/screen/dashboard/controller.dart';
 import 'package:flutter_web3/flutter_web3.dart';
 import 'package:get/get.dart';
+
+import '../../abi/IAuctionInterface.abi.dart';
 
 /// @dev We assume the contract is deployed and using the same account to do other operations
 class AdminController extends GetxController {
@@ -17,6 +19,8 @@ class AdminController extends GetxController {
   Wallet? adminWallet;
   Contract? auctionContract;
   ContractERC20? tokenContract;
+
+  late IKCHToken kchToken;
 
   TextEditingController privateKeyEditingController = TextEditingController();
   TextEditingController contractEditingController = TextEditingController();
@@ -31,10 +35,11 @@ class AdminController extends GetxController {
     //   }
     // }, condition: adminWallet != null);
     await addWallet(kPrivateKey);
-    initTokenContract();
     initAuctionContract();
+    initTokenContract();
     fetchEtherBalance();
     fetchKCHBalance();
+    await initKCHTokenContract();
   }
 
   Future<void> addWallet(String privateKey) async {
@@ -46,6 +51,14 @@ class AdminController extends GetxController {
     isLogin.value = true;
   }
 
+  Future<void> initKCHTokenContract() async {
+    final _tokenAddress =
+        Get.find<DashboardController>().tokenContract.contract.address;
+    kchToken = IKCHToken(_tokenAddress, adminWallet);
+    final totalSupply = await kchToken.contract.totalSupply;
+    print("max supply from IKCHToken: ${bigIntToString(totalSupply)}");
+  }
+
   void initAuctionContract() {
     print("init auction contract");
     final _auctionAddress =
@@ -53,7 +66,7 @@ class AdminController extends GetxController {
 
     auctionContract = Contract(
       _auctionAddress,
-      kAuctionInterfaceABI,
+      Interface(kAuctionInterfaceABI),
       adminWallet,
     );
     print("Auction Contract Address: $_auctionAddress");
@@ -84,11 +97,5 @@ class AdminController extends GetxController {
     final result = await auctionContract!.send("startAuction");
     print(result.hash);
     return result.hash;
-  }
-
-  Future<void> withdrawAll() async {
-    if (auctionContract == null) return;
-    final result = await auctionContract!.call("withdrawAll");
-    print("withdrawAll(): ${dartify(result)}");
   }
 }

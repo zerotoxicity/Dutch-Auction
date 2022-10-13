@@ -53,7 +53,6 @@ class AdminScreen extends StatelessWidget {
               textLayout("KCH Balance: ", controller.kchBalance),
               textLayout("ETH Balance: ", controller.etherBalance),
               startAuctionWidget,
-              withdrawAllTokenWidget
             ],
           );
         }),
@@ -75,9 +74,5 @@ class AdminScreen extends StatelessWidget {
           }
         },
         child: const Text("Start Auction"),
-      );
-  Widget get withdrawAllTokenWidget => OutlinedButton(
-        onPressed: () async => await controller.withdrawAll(),
-        child: const Text("Withdraw Tokens"),
       );
 }
