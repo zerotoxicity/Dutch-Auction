@@ -286,6 +286,44 @@ describe("📝 Auction Contract", function () {
         AUCTION_SUPPLY
       );
     });
+    it("User is refunded if auction is meant to end", async () => {
+      await auctionContract.startAuction();
+      //User 1 bids 99 ETH, just short of 1 ETH to end the auction
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("99") });
+      await fastForwardTwentyMins();
+      //Auction is still ongoing as no one has called the function to end the auction
+
+      //User 2 wants to bid
+      await auctionContract
+        .connect(accounts[1])
+        .insertBid({ value: ethers.utils.parseEther("1") });
+      //Auction ends and refunds User 2's 1 ETH (instead of inserting User 2's bid)
+      await expect(auctionContract.connect(accounts[1]).withdraw())
+        .to.emit(auctionContract, "Receiving")
+        .withArgs(BigInt(1e18));
+    });
+
+    it("Scenario with 3 bidders(2 successful, 1 excess)", async function () {
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: ethers.utils.parseEther("90") });
+
+      await auctionContract
+        .connect(accounts[1])
+        .insertBid({ value: ethers.utils.parseEther("9") });
+
+      await auctionContract
+        .connect(accounts[2])
+        .insertBid({ value: ethers.utils.parseEther("5") });
+
+      await expect(auctionContract.connect(accounts[2]).withdraw())
+        .to.emit(auctionContract, "Receiving")
+        .withArgs((x) => x > BigInt(4e18));
+
+      await auctionContract.connect(accounts[1]).withdraw();
+      expect(
+        await ketchupContract.balanceOf(accounts[1].address)
+      ).to.be.greaterThan(BigInt(9e18));
+    });
   });
 
   describe("💳 Withdraw", function () {

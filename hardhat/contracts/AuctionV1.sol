@@ -10,6 +10,8 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+import "hardhat/console.sol";
+
 /**
  * @title Auction contract V1
  * @author Team Ketchup
@@ -161,9 +163,10 @@ contract AuctionV1 is
 
     ///@inheritdoc IAuctionV1
     function insertBid() external payable auctionOngoing {
-        bool ended = checkIfAuctionShouldEnd();
-        if (ended) _refunds[msg.sender] = msg.value;
-        else {
+        if (checkIfAuctionShouldEnd()) {
+            _refunds[msg.sender] = msg.value;
+            _refundAmount += msg.value;
+        } else {
             bidders[_auctionNo].set(msg.sender, msg.value);
             _totalBidAmount[_auctionNo] += msg.value;
             if (getSupplyReserved() >= AUCTION_SUPPLY) {
