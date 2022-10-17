@@ -1,17 +1,17 @@
-import 'dart:html';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_frontend/screen/admin/screen.dart';
+import 'package:flutter_frontend/screen/auction/controller.dart';
+import 'package:flutter_frontend/screen/auction/screen.dart';
 import 'package:flutter_frontend/screen/dashboard/controller.dart';
-import 'package:flutter_frontend/style.dart';
+
 import 'package:flutter_frontend/web3_controller.dart';
 import 'package:get/get.dart';
 
 import '../../helper.dart';
 import '../../widget.dart';
 
-// Shows the current ICO activities, login required
+/// Show information about token
 class DashboardScreen extends StatelessWidget {
   DashboardScreen({Key? key}) : super(key: key);
   final Web3Controller web3Controller = Get.find<Web3Controller>();
@@ -62,30 +62,39 @@ class DashboardScreen extends StatelessWidget {
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: "Refresh Auction",
-              onPressed: controller.refreshAuctionState,
+              onPressed: () async {
+                await controller.fetchLatestAuction();
+                await controller.checkAuctionShouldEnd();
+              },
             )
           ],
         ),
-        body: TabBarView(children: [
-          Container(
-            color: Colors.amber[50],
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 80),
-            child: ListView(
-              children: [
-                tokenSupplyWidget,
-                auctionStateWidget,
-                auctionNoWidget,
-                actionButtonWidget,
-                auctionTokenSupplyWidget,
-                timestampWidget,
-                countdownWidget,
-                currentBidPriceWidget,
-                userKCHBalanceWidget,
-              ],
+        body: TabBarView(
+          children: [
+            Container(
+              color: Colors.amber[50],
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 80),
+              child: ListView(
+                children: [
+                  /// > About Token
+                  tokenSupplyWidget,
+                  averagePriceWidget,
+                  // > Current Auction
+                  auctionStateWidget,
+                  auctionNoWidget,
+                  actionButtonWidget,
+                  auctionTokenSupplyWidget,
+                  timestampWidget,
+                  countdownWidget,
+                  // > About User
+                  currentBidPriceWidget,
+                  userKCHBalanceWidget,
+                ],
+              ),
             ),
-          ),
-          AdminScreen()
-        ]),
+            AdminScreen()
+          ],
+        ),
       ),
     );
   }
@@ -103,12 +112,12 @@ class DashboardScreen extends StatelessWidget {
               const Text("Add new Auction Contract"),
               contractAddressWidget(
                 "Auction Address: ",
-                controller.auctionContract.address,
+                controller.auctionAddress,
                 controller.auctionAddressEditingController,
               ),
               contractAddressWidget(
                 "Token Address: ",
-                controller.tokenContract.contract.address,
+                controller.tokenAddress,
                 controller.tokenAddressEditingController,
               ),
               ElevatedButton(
@@ -118,7 +127,7 @@ class DashboardScreen extends StatelessWidget {
                   final snackbar = GetSnackBar(
                     title: "Update new contract",
                     message:
-                        "Auction address: ${controller.auctionContract.address} \n Token address: ${controller.tokenContract.contract.address}",
+                        "Auction address: ${controller.auctionAddress} \n Token address: ${controller.tokenAddress}",
                     duration: const Duration(seconds: 3),
                   );
                   Get.back();
@@ -166,34 +175,37 @@ class DashboardScreen extends StatelessWidget {
   Widget get actionButtonWidget => Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          IconButton(
-            onPressed: () async {
-              await showDialog(
-                context: Get.context!,
-                builder: (context) => submitBidWdiget,
-              );
-            },
-            tooltip: "Bid",
-            icon: const Icon(Icons.bolt),
+          Obx(
+            () => OutlinedButton(
+              child: const Text("Submit Bid"),
+              onPressed: controller.auctionState.value == 0
+                  ? () async => await showDialog(
+                        context: Get.context!,
+                        builder: (context) => submitBidWdiget,
+                      )
+                  : null,
+            ),
           ),
-          const Divider(),
-          IconButton(
-            tooltip: "Withdraw KCH",
-            icon: const Icon(Icons.output),
-            onPressed: () async {
-              await controller.checkAuctionShouldEnd();
-              if (controller.auctionState.value == 1) {
-                await controller.withdrawTokens();
-                await controller.updateUserKCHBalance();
-              } else {
-                const GetSnackBar(
-                  title: "Withdraw Failed",
-                  message: "Auction has not ended. Click to refresh",
-                  duration: Duration(seconds: 3),
-                ).show();
-              }
-              // Withdraw token from auction address
-            },
+          const SizedBox(width: 8),
+          Obx(
+            () => OutlinedButton(
+              child: const Text("Withdraw KCH token"),
+              onPressed: controller.auctionState.value == 1
+                  ? () async {
+                      if (controller.auctionState.value != 0) {
+                        // Attempt to withdraw tokens
+                        await controller.withdrawTokens();
+                      } else {
+                        const GetSnackBar(
+                          title: "Withdraw Failed",
+                          message: "Auction has not ended. Click to refresh",
+                          duration: Duration(seconds: 3),
+                        ).show();
+                      }
+                      // Withdraw token from auction address
+                    }
+                  : null,
+            ),
           )
         ],
       );
@@ -215,7 +227,11 @@ class DashboardScreen extends StatelessWidget {
 
   Widget get countdownWidget => textLayout(
         "Time left: ",
-        controller.countdownTimerInSeconds,
+        controller.timeleft,
+      );
+  Widget get currentBidPriceWidget => textLayout(
+        "Current Bid Price (ETH):",
+        controller.currentBidPrice,
       );
 
   Widget get auctionNoWidget => Container(
@@ -224,18 +240,21 @@ class DashboardScreen extends StatelessWidget {
         width: Get.width * 0.6,
         child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Obx(
-            () => SelectableText("Auction No: ${controller.auctionNo.value}"),
+            () => SelectableText(
+                "Current Auction No: ${controller.auctionNo.value}"),
           ),
           IconButton(
-            onPressed: controller.fetchAuctionNo,
-            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              Get.put(PastAuctionController());
+              Get.to(
+                PastAuction(),
+                fullscreenDialog: false,
+              );
+            },
+            icon: const Icon(Icons.history),
+            tooltip: "Past Auctions",
           )
         ]),
-      );
-
-  Widget get currentBidPriceWidget => textLayout(
-        "Current Bid Price (ETH):",
-        controller.currentBidPrice,
       );
 
   Widget get auctionStateWidget => Obx((() {
@@ -260,9 +279,13 @@ class DashboardScreen extends StatelessWidget {
         "Total Supply: ",
         controller.tokenTotalSupply,
       );
+  Widget get averagePriceWidget => textLayout(
+        "Average Price: ",
+        controller.tokenPrice,
+      );
 
   Widget get submitBidWdiget => AlertDialog(
-        title: Text("Bid Amount", style: Style.headingTextStyle),
+        title: const Text("Bid Amount"),
         actions: [
           ElevatedButton(
             onPressed: controller.auctionState.value == 0 ||
@@ -276,7 +299,6 @@ class DashboardScreen extends StatelessWidget {
                           "Amount: ${bidAmount.toPrecision(4).toString()} ETH",
                       duration: const Duration(seconds: 3),
                     );
-                    await controller.refreshAuctionState();
                     Get.back();
                     sb.show();
                   }

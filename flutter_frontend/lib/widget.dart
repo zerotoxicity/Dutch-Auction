@@ -16,15 +16,29 @@ Widget textLayout(
       children: [
         SelectableText(
           title,
-          style: headingStyle ?? Style.headingTextStyle,
+          style: headingStyle ?? headingTextStyle,
         ),
         Obx(
           () => SelectableText(
             rxBody.value,
-            style: bodyStyle ?? Style.bodyTextStyle,
+            style: bodyStyle ?? bodyTextStyle,
           ),
         )
       ],
     ),
+  );
+}
+
+/// Vertical layout button with title
+Widget customIconButton(
+  String title,
+  Widget icon, {
+  required VoidCallback? onPressed,
+}) {
+  return Column(
+    children: [
+      IconButton(onPressed: onPressed, icon: icon, tooltip: title),
+      Text(title)
+    ],
   );
 }

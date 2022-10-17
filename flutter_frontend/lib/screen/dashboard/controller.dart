@@ -1,23 +1,23 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_frontend/abi/iauction_interface.dart';
+import 'package:flutter_frontend/abi/ikch_token_interface.dart';
 import 'package:flutter_frontend/helper.dart';
 import 'package:flutter_web3/flutter_web3.dart';
 import 'package:get/get.dart';
 import 'package:web3dart/web3dart.dart' as web3dart;
 
-import '../../abi/IAuctionInterface.abi.dart';
-
 /// @note Right now we're only interested in localchain 1337 id
 class DashboardController extends GetxController {
   Rx<String> currentBidPrice = Rx("0");
-  Rx<BigInt> auctionNo = Rx(BigInt.from(-1));
+  Rx<int> auctionNo = Rx(-1);
   Rx<int> auctionState = Rx(-1);
-  Rx<BigInt> tokenPrice = Rx(BigInt.from(-1));
+  Rx<String> tokenPrice = Rx("-1");
   Rx<String> tokenTotalSupply = Rx("0");
   Rx<String> auctionTokenSupply = Rx("0");
   Rx<String> startTime = Rx("NIL");
-  Rx<String> countdownTimerInSeconds = Rx("0");
+  Rx<String> timeleft = Rx("0");
   Rx<String> userKCHBalance = Rx("0");
   Rx<bool> shouldHaveEnded = RxBool(true);
 
@@ -26,8 +26,8 @@ class DashboardController extends GetxController {
       TextEditingController();
   TextEditingController tokenAddressEditingController = TextEditingController();
 
-  late Contract auctionContract;
-  late ContractERC20 tokenContract;
+  late IAuctionInterface auctionContract;
+  late IKCHToken tokenContract;
 
   String auctionAddress = kAuctionContractAddress;
   String tokenAddress = kTokenAddress;
@@ -45,51 +45,72 @@ class DashboardController extends GetxController {
         .then((value) => userAddress.value = value);
     initTokenContract();
     initAuctionContract();
-    fetchTokenSupply();
   }
 
-  void initTokenContract() => tokenContract = ContractERC20(
-        tokenAddress,
-        provider!.getSigner(),
-      );
+  @override
+  void onReady() async {
+    super.onReady();
+    await fetchTokenSupply();
+    await fetchLatestAuction();
+    await fetchAverageTokenPrice();
+  }
 
-  void initAuctionContract() => auctionContract = Contract(
+  // * Getters
+
+  void initTokenContract() =>
+      tokenContract = IKCHToken(tokenAddress, provider!.getSigner());
+
+  void initAuctionContract() => auctionContract = IAuctionInterface(
         auctionAddress,
-        Interface(kAuctionInterfaceABI),
         provider!.getSigner(),
       );
 
-  // * Token Contract Functions
-  void fetchTokenSupply() async {
-    final value = await tokenContract.totalSupply;
-    print("Token Supply: $value");
-    // TODO: add a supply converter
+  /// Total supply bidded
+  Future<void> fetchTokenSupply() async {
+    final value = await tokenContract.totalSupply();
     tokenTotalSupply.value = bigIntToString(value);
   }
 
-  Future<void> refreshAuctionState() async {
-    fetchAuctionState();
-    updateUserKCHBalance();
-    await fetchAuctionNo();
-    fetchAuctionTokenSupply();
-    fetchBidPrice();
-    clearTimer();
-    await fetchAuctionStartTime().then((value) {
-      if (value != null) {
-        startTime.value = _convertTimestampToReadable(value.toInt());
-        final now = DateTime.now();
-        final start =
-            DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
+  /// Fetch KCH of given addreess
+  Future<void> updateUserKCHBalance() async {
+    final value = await tokenContract.balanceOf(userAddress.value);
+    userKCHBalance.value = bigIntToString(value);
+  }
 
-        if (!now.difference(start).isNegative && value.toInt() > 0) {
-          final deadline = calculateDeadline(value.toInt(), kAuctionDuration);
-          countdownTimer = deadlineCounter(
-            deadline,
-            countdownTimerInSeconds,
-          );
-        }
-      }
-    });
+  /// Fetch current auction no and show the state for it
+  Future<void> fetchLatestAuction() async {
+    clearTimer();
+    await updateUserKCHBalance();
+    await fetchAuctionNo();
+    if (auctionNo.value == -1) return; // Auction has not start even once
+    await fetchAuctionState();
+    // Current action is active
+    if (auctionState.value == 0) {
+      startAuctionTime(await fetchAuctionStartTime());
+      fetchBidPrice(auctionNo.value);
+    }
+  }
+
+  /// Update countdown timer & stops at 0
+  void startAuctionTime(BigInt? value) {
+    if (value == null) {
+      // Clear time
+      startTime.value = "NIL";
+      clearTimer();
+      return;
+    }
+
+    startTime.value = convertTimestampToReadable(value.toInt());
+    final now = DateTime.now();
+    final start =
+        DateTime.fromMillisecondsSinceEpoch(value.toInt(), isUtc: true);
+    if (!now.difference(start).isNegative && value.toInt() > 0) {
+      final deadline = calculateDeadline(value.toInt(), kAuctionDuration);
+      countdownTimer = deadlineCounter(
+        deadline,
+        timeleft,
+      );
+    }
   }
 
   // Reassign contract object with new instance
@@ -102,83 +123,65 @@ class DashboardController extends GetxController {
       tokenAddress = tokenAddressEditingController.text;
       initTokenContract();
     }
-    refreshAuctionState();
+    fetchLatestAuction();
   }
 
   Future<void> fetchAuctionNo() async {
-    final value = await auctionContract.call<BigInt>("getAuctionNo");
+    final value = await auctionContract.getAuctionNo();
     print("Auction No: $value");
-    auctionNo.value = value;
+    auctionNo.value = value.toInt();
   }
 
-  fetchBidPrice() async {
-    final value = await auctionContract.call<BigInt>(
-      "getTokenPrice",
-      [auctionNo.value],
-    );
+  set updateAuctionNo(int newAuctionNo) => auctionState.value = newAuctionNo;
+
+  Future<void> fetchBidPrice(int auctionNo) async {
+    final value = await auctionContract.getTokenPrice(auctionNo);
     print("Token price: $value");
     currentBidPrice.value = bigIntToString(value);
   }
 
+  /// Able to withdraw if auction state == 1:CLOSED
   Future<void> withdrawTokens() async {
-    print("withdrawing...");
-    await auctionContract.call("withdraw");
-
-    print("withdraw down");
-  }
-
-  /// Fetch KCH of given addreess
-  Future<void> updateUserKCHBalance() async {
-    final value = await tokenContract.balanceOf(userAddress.value);
-    print("user balance: ${value.toInt()}");
-    userKCHBalance.value = bigIntToString(value);
+    await auctionContract.withdraw();
+    await updateUserKCHBalance();
   }
 
   /// Return timestamp of auction start time
   Future<BigInt?> fetchAuctionStartTime() async {
-    try {
-      final value = await auctionContract.call<BigInt>("getAuctionStartTime");
-      print("Auction start time: $value");
-      return value;
-    } catch (e) {
-      print("error in fetching time: ${e.toString()}");
-    }
-    return null;
+    final value = await auctionContract.getAuctionStartTime();
+    print("Auction start time: $value");
+    return value;
   }
 
-  Future<bool> checkAuctionShouldEnd() async {
-    print("call checkAuctionShouldEnd");
-    final value = await auctionContract.call("checkIfAuctionShouldEnd");
+  Future<void> checkAuctionShouldEnd() async {
+    final value = await auctionContract.checkIfAuctionShouldEnd();
     print("Object from checkIfAuctionShouldEnd: ${dartify(value)}");
-    return shouldHaveEnded.value;
+    shouldHaveEnded.value = value;
+    // return value;
   }
 
   Future<void> fetchAuctionState() async {
-    final value = await auctionContract.call<int>("getAuctionState");
+    final value = await auctionContract.getAuctionState();
     print("Auction State: ${value.toString()}");
     auctionState.value = value;
   }
 
+  Future<void> fetchAverageTokenPrice() async {
+    final result = await tokenContract.getAvgTokenPrice();
+    print("average price: $result");
+    tokenPrice.value = bigIntToString(result);
+  }
+
   Future<BigInt> submitBid() async {
     final valueInWei = double.parse(bidAmountEditingController.text) * 1e18;
-    BigInt bidAmount = web3dart.EtherAmount.fromUnitAndValue(
-      web3dart.EtherUnit.wei,
-      valueInWei.toInt(),
-    ).getInWei;
-    print("submitBid() amount: $bidAmount");
-
     try {
-      final tx = await auctionContract.send(
-        "insertBid",
-        [],
-        TransactionOverride(value: bidAmount),
-      );
-      print("Tx hash: ${tx.hash}");
+      final tx = await auctionContract.insertBid(BigInt.from(valueInWei));
+      print("Tx hash: ${tx?.hash}");
       bidAmountEditingController.clear();
     } catch (e) {
       print("submit bid error: ${e.toString()}");
     }
-    return bidAmount;
+    return BigInt.from(valueInWei);
   }
 
   Future<String> sendEther(
@@ -195,9 +198,10 @@ class DashboardController extends GetxController {
     return tx.hash;
   }
 
+  /// Total supply for all auction
   void fetchAuctionTokenSupply() async {
     print("getAuctionSupply()");
-    final value = await auctionContract.call<BigInt>("getAuctionSupply");
+    final value = await auctionContract.getAuctionSupply();
     print("getAuctionSupply(): $value");
     auctionTokenSupply.value = bigIntToString(value);
   }
@@ -215,17 +219,17 @@ class DashboardController extends GetxController {
     return _deadline;
   }
 
-  /// Calculate difference between deadline relative to current time
+  /// Update countdowntimer with deadline
   Timer deadlineCounter(
     DateTime deadline,
     Rx<String> countdownTimer,
   ) {
-    return Timer.periodic(const Duration(seconds: 1), (timer) {
+    return Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (timer.isActive) {
         // Update countdown timer every 1 sec
         final _result = deadline.difference(DateTime.now());
         if (_result.inSeconds < 0) {
-          countdownTimer.value = "0";
+          countdownTimer.value = "Time's Up";
           timer.cancel();
         } else {
           countdownTimer.value = _countdownHandler(_result.inSeconds);
@@ -235,7 +239,7 @@ class DashboardController extends GetxController {
   }
 
   void clearTimer() {
-    countdownTimerInSeconds.value = "0";
+    timeleft.value = "0";
     if (countdownTimer == null) return;
     if (countdownTimer!.isActive) {
       countdownTimer!.cancel();
@@ -248,14 +252,5 @@ class DashboardController extends GetxController {
     } else {
       return "$seconds seconds";
     }
-  }
-
-  /// Convert timestamp to human readable string
-  String _convertTimestampToReadable(int timestamp) {
-    print("Debug start time: $timestamp");
-    if (timestamp <= 0) return "not available";
-    final _dt =
-        DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
-    return "${_dt.day}/${_dt.month}/${_dt.year}";
   }
 }

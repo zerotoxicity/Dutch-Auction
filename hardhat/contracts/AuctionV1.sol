@@ -150,7 +150,7 @@ contract AuctionV1 is
     function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
         if (
             (getSupplyReserved() >= AUCTION_SUPPLY) ||
-            (block.timestamp >= _auctionStartTime[_auctionNo] + 20 minutes)
+            (block.timestamp >= _auctionStartTime[_auctionNo] + 5 minutes)
         ) {
             _endAuction();
             emit ShouldAuctionEnd(true);

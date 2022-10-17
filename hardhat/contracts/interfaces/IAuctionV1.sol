@@ -107,4 +107,9 @@ interface IAuctionV1 {
      * Caller withdraws KCH tokens and refunds if entitled
      */
     function withdraw() external;
+
+    /**
+     * View duration of the auction
+     */
+    function viewAuctionDuration() view returns (uint256);
 }

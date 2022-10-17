@@ -53,10 +53,41 @@ class AdminScreen extends StatelessWidget {
               textLayout("KCH Balance: ", controller.kchBalance),
               textLayout("ETH Balance: ", controller.etherBalance),
               startAuctionWidget,
+              burnTokenWidget(context),
             ],
           );
         }),
       ),
+    );
+  }
+
+  Widget burnTokenWidget(BuildContext context) {
+    return OutlinedButton(
+      onPressed: () {
+        showDialog(
+            context: context,
+            builder: (context) {
+              final textController = TextEditingController();
+              return AlertDialog(
+                title: const Text("Enter Amount: "),
+                content: TextField(
+                  controller: textController,
+                  keyboardType: TextInputType.number,
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () async {
+                      await controller.kchToken.burnRemainingToken(
+                          BigInt.from(int.parse(textController.value.text)));
+                      Get.back();
+                    },
+                    child: const Text("Burn"),
+                  )
+                ],
+              );
+            });
+      },
+      child: const Text("Burn Tokens"),
     );
   }
 

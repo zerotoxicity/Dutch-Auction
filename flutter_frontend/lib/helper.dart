@@ -23,7 +23,16 @@ const Map<int, String> kAuctionState = {
   2: "CLOSING",
 };
 
-const int kAuctionDuration = 20;
+const int kAuctionDuration = 5;
 
 const kPrivateKey =
     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+
+/// Convert timestamp to human readable string
+String convertTimestampToReadable(int timestamp) {
+  print("Debug start time: $timestamp");
+  if (timestamp <= 0) return "not available";
+  final _dt =
+      DateTime.fromMillisecondsSinceEpoch(timestamp * 1000, isUtc: true);
+  return "${_dt.day}/${_dt.month}/${_dt.year}";
+}

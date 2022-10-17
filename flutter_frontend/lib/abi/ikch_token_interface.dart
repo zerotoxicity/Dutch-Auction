@@ -1,10 +1,16 @@
 import 'package:flutter_web3/flutter_web3.dart';
 
-class IKCHToken {
-  late ContractERC20 contract;
+import 'ikch_token_interface.abi.dart';
 
-  IKCHToken(String address, dynamic provider) {
-    contract = ContractERC20(address, provider);
+class IKCHToken {
+  late Contract contract;
+
+  IKCHToken(
+    String address,
+    dynamic provider, {
+    dynamic abi,
+  }) {
+    contract = Contract(address, abi ?? kIKetchUpTokenABI, provider);
   }
 
   // Extends functionality
@@ -15,22 +21,33 @@ class IKCHToken {
   }
 
   Future<void> burnRemainingToken(BigInt amount) async {
-    final result = await callFn(
-        "burnRemainingToken", [TransactionOverride(value: amount)]);
-    print("result: $result");
+    try {
+      final tx = await contract.send(
+        "burnRemainingToken",
+        [amount],
+        TransactionOverride(gasLimit: BigInt.from(21000 * 2)),
+      );
+      print("tx: ${tx.hash}");
+      final receipt = await tx.wait();
+      print("receipt: ${receipt.transactionHash}");
+    } catch (e) {
+      print(e.toString());
+    }
+  }
+
+  Future<BigInt> totalSupply() async {
+    return contract.call("totalSupply");
+  }
+
+  Future<BigInt> balanceOf(String address) async {
+    return await callFn("balanceOf", [address]);
   }
 
   Future<BigInt> getAvgTokenPrice() async =>
       await callFn<BigInt>("getAvgTokenPrice");
 
   Future<T> callFn<T>(String fnName, [List<dynamic> a = const []]) async {
-    late T result;
-    try {
-      print("call fn:$fnName ");
-      result = await contract.contract.call(fnName, a);
-    } catch (e) {
-      print("error $fnName: ${e.toString()}");
-    }
-    return result;
+    print("$fnName() called");
+    return await contract.call(fnName, a);
   }
 }

@@ -3,10 +3,10 @@ import 'package:flutter_web3/flutter_web3.dart';
 
 /// For dart to interface with IAuctionInterface
 class IAuctionInterface {
-  late Contract auctionContract;
+  late Contract contract;
 
-  IAuctionInterface(String address, dynamic provider) {
-    auctionContract = Contract(address, kAuctionInterfaceABI, provider);
+  IAuctionInterface(String address, dynamic provider, {abi}) {
+    contract = Contract(address, abi ?? kAuctionInterfaceABI, provider);
   }
 
   Future<BigInt> getAuctionNo() async => await callFn<BigInt>("getAuctionNo");
@@ -19,6 +19,10 @@ class IAuctionInterface {
   Future<BigInt> getSupplyReserved() async =>
       await callFn<BigInt>("getSupplyReserved");
 
+  /// Auction's supply
+  Future<BigInt> getAuctionSupply() async =>
+      await callFn<BigInt>("getAuctionSupply");
+
   Future<BigInt> getTokenPrice(int auctionNo) async =>
       await callFn<BigInt>("getTokenPrice", [auctionNo]);
 
@@ -26,28 +30,32 @@ class IAuctionInterface {
     return await callFn<BigInt>("getUserBidAmount", [address]);
   }
 
+  Future<BigInt> getTotalBiddedAmount(int auctionNo) async {
+    return await callFn<BigInt>("getTotalBiddedAmount", [auctionNo]);
+  }
+
   Future<TransactionResponse?> insertBid(BigInt amount) async {
-    return await auctionContract.send(
+    return await contract.send(
       "insertBid",
       [],
       TransactionOverride(value: amount),
     );
   }
 
-  Future<void> startAuction() async => callFn<void>("startAuction");
+  Future<TransactionResponse> startAuction() async =>
+      await contract.send("startAuction");
 
-  Future<bool> checkIfAuctionShouldEnd() async =>
-      callFn<bool>("checkIfAuctionShouldEnd");
+  Future checkIfAuctionShouldEnd() async {
+    var result = await contract.call("checkIfAuctionShouldEnd");
+    return result;
+  }
 
   Future<void> withdraw() async => callFn<void>("withdraw");
 
   Future<T> callFn<T>(String fnName, [List<dynamic> a = const []]) async {
+    print("$fnName() called");
     late T result;
-    try {
-      result = await auctionContract.call(fnName, a);
-    } catch (e) {
-      print("error $fnName: ${e.toString()}");
-    }
+    result = await contract.call(fnName, a);
     return result;
   }
 }
