@@ -28,6 +28,7 @@ contract AuctionV1 is
     uint256 private _auctionNo; //Auction starts from 0
     mapping(uint256 => uint256) private _endPrice;
     mapping(uint256 => uint256) private _auctionStartTime;
+    mapping(uint256 => uint256) private _auctionEndTime;
 
     ///Bidding-related variables
     uint256 private _refundAmount;
@@ -94,8 +95,21 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function getAuctionStartTime() external view returns (uint256) {
-        return _auctionStartTime[_auctionNo];
+    function getAuctionStartTime(uint256 auctionNo)
+        external
+        view
+        returns (uint256)
+    {
+        return _auctionStartTime[auctionNo];
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getAuctionEndTime(uint256 auctionNo)
+        external
+        view
+        returns (uint256)
+    {
+        return _auctionEndTime[auctionNo];
     }
 
     ///@inheritdoc IAuctionV1
@@ -200,6 +214,14 @@ contract AuctionV1 is
         _endPrice[_auctionNo] = getSupplyReserved() >= AUCTION_SUPPLY
             ? getTokenPrice(_auctionNo)
             : RESERVED_PRICE;
+        if (_endPrice[_auctionNo] == RESERVED_PRICE) {
+            _auctionEndTime[_auctionNo] =
+                _auctionStartTime[_auctionNo] +
+                20 minutes;
+        } else {
+            _auctionEndTime[_auctionNo] = block.timestamp;
+        }
+
         _currentAuctionState = AuctionState.CLOSED;
         if (getSupplyReserved() > AUCTION_SUPPLY) {
             _refundLastBidder();

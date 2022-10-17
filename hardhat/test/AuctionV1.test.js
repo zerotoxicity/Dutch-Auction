@@ -38,7 +38,7 @@ describe("📝 Auction Contract", function () {
     });
   });
 
-  describe(" User bid history", function () {
+  describe("🕥 User bid history", function () {
     it("Return 0 if the user did not bid", async function () {
       await auctionContract.startAuction();
       await fastForwardTwentyMins();
@@ -79,6 +79,10 @@ describe("📝 Auction Contract", function () {
       await expect(auctionContract.connect(accounts[1]).startAuction()).to.be
         .reverted;
     });
+    it("Reverts if an auction is ongoing", async function () {
+      await auctionContract.startAuction();
+      await expect(auctionContract.startAuction()).to.be.reverted;
+    });
     it("Owner is able to start auction", async function () {
       await auctionContract.startAuction();
 
@@ -93,16 +97,20 @@ describe("📝 Auction Contract", function () {
 
     it("Previous auction variables should be resetted", async function () {
       await auctionContract.startAuction();
-      const firstAuctionStartTime = await auctionContract.getAuctionStartTime();
+      const firstAuctionStartTime = await auctionContract.getAuctionStartTime(
+        await auctionContract.getAuctionNo()
+      );
       await auctionContract.insertBid({
         value: ethers.utils.parseEther("100"),
       });
 
       //Start 2nd auction
       await auctionContract.startAuction();
-      expect(await auctionContract.getAuctionStartTime()).to.be.greaterThan(
-        firstAuctionStartTime
-      );
+      expect(
+        await auctionContract.getAuctionStartTime(
+          await auctionContract.getAuctionNo()
+        )
+      ).to.be.greaterThan(firstAuctionStartTime);
 
       //User only bidded in first auction, expect zero bid value in second auction
       expect(
@@ -126,7 +134,7 @@ describe("📝 Auction Contract", function () {
         .to.emit(auctionContract, "ShouldAuctionEnd")
         .withArgs(false);
     });
-    it("Ends unbidded auction after 20 minutes have elapsed", async function () {
+    it("Ends auction when 20 minutes have elapsed", async function () {
       await auctionContract.startAuction();
       await fastForwardTwentyMins();
       //20 minutes has passed, auction should end
@@ -135,27 +143,23 @@ describe("📝 Auction Contract", function () {
         .withArgs(true);
     });
 
-    it("Bidder is able to withdraw past auction prize", async function () {
+    it("Auction end time should be updated", async function () {
       await auctionContract.startAuction();
-
-      //User funds first auction
       await auctionContract.insertBid({
         value: ethers.utils.parseEther("100"),
       });
+      expect(await auctionContract.getAuctionEndTime(0)).to.be.greaterThan(
+        await auctionContract.getAuctionStartTime(0)
+      );
+    });
 
-      //Start second auction
+    it("Max auction end time should be 20 minutes after start time", async function () {
       await auctionContract.startAuction();
-
-      //User is unable to withdraw while an auction is ongoing
-      await expect(auctionContract.withdraw()).to.be.reverted;
-
-      //End auction
+      await fastForwardTwentyMins();
       await fastForwardTwentyMins();
       await auctionContract.checkIfAuctionShouldEnd();
-
-      await auctionContract.withdraw();
-      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
-        AUCTION_SUPPLY
+      expect(await auctionContract.getAuctionEndTime(0)).to.be.equal(
+        BigInt(await auctionContract.getAuctionStartTime(0)) + BigInt(20 * 60)
       );
     });
 
@@ -280,6 +284,44 @@ describe("📝 Auction Contract", function () {
       await auctionContract.withdraw();
       expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
         AUCTION_SUPPLY
+      );
+    });
+  });
+
+  describe("💳 Withdraw", function () {
+    it("Reverts when auction is not closed", async function () {
+      await auctionContract.startAuction();
+      await expect(auctionContract.withdraw()).to.be.reverted;
+    });
+
+    it("Reverts when caller did not bid in auction", async function () {
+      await auctionContract.startAuction();
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+      await expect(auctionContract.withdraw()).to.be.reverted;
+    });
+
+    it("Bidder is able to withdraw past auction prize", async function () {
+      await auctionContract.startAuction();
+
+      //User funds first auction
+      await auctionContract.insertBid({
+        value: ethers.utils.parseEther("100"),
+      });
+
+      //Start second auction
+      await auctionContract.startAuction();
+
+      //User is unable to withdraw while an auction is ongoing
+      await expect(auctionContract.withdraw()).to.be.reverted;
+
+      //End auction
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+
+      await auctionContract.withdraw();
+      expect(await ketchupContract.balanceOf(deployer.address)).to.be.equal(
+        await auctionContract.getAuctionSupply()
       );
     });
   });

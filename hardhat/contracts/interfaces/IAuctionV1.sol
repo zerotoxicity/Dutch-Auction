@@ -38,13 +38,29 @@ interface IAuctionV1 {
     /**
      * Returns current auction number.
      * Auctions starts from 0
+     *
      */
     function getAuctionNo() external view returns (uint256);
 
     /**
-     * Returns auction's start time
+     * Returns selected auction's start time
+     * @param auctionNo The number of the auction that the caller wish to view to view
+
      */
-    function getAuctionStartTime() external view returns (uint256);
+    function getAuctionStartTime(uint256 auctionNo)
+        external
+        view
+        returns (uint256);
+
+    /**
+     * Returns selected auction's end time
+     * @param auctionNo The number of the auction that the caller wish to view to view
+
+     */
+    function getAuctionEndTime(uint256 auctionNo)
+        external
+        view
+        returns (uint256);
 
     /**
      * Returns auction's supply

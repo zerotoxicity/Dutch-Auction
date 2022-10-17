@@ -28,6 +28,12 @@ contract KetchupTokenV1 is
         __UUPSUpgradeable_init();
     }
 
+    ///@inheritdoc IKetchupToken
+    function getAvgTokenPrice() external view returns (uint256) {
+        if (address(this).balance == 0 || totalSupply() == 0) return 0;
+        return (address(this).balance * 1e18) / totalSupply();
+    }
+
     function _authorizeUpgrade(address) internal override onlyOwner {}
 
     ///@inheritdoc IKetchupToken
@@ -39,11 +45,5 @@ contract KetchupTokenV1 is
     ///@inheritdoc IKetchupToken
     function burnRemainingToken(uint256 amount) external onlyOwner {
         _burn(owner(), amount);
-    }
-
-    ///@inheritdoc IKetchupToken
-    function getAvgTokenPrice() external view returns (uint256) {
-        if (address(this).balance == 0 || totalSupply() == 0) return 0;
-        return (address(this).balance * 1e18) / totalSupply();
     }
 }

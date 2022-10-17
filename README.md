@@ -23,3 +23,12 @@ yarn install
 
 3. Deploy the smart contract onto localhost network
    ` yarn deploy --network localhost`
+
+### Usage
+
+To test the smart contracts:
+
+```
+cd hardhat
+yarn hardhat coverage
+```
