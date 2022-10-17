@@ -13,8 +13,31 @@ interface IAuctionV1 {
      */
     event Receiving(uint256 amount);
 
+    // ===== Read methods ====
+
     /**
-     * Returns current auction number
+     * Returns current supply reserved by bidders
+     */
+    function getSupplyReserved() external view returns (uint256);
+
+    /**
+     * Returns selected auction's KCH token price in wei
+     * @param auctionNo The number of the auction that the caller wish to view to view
+     */
+    function getTokenPrice(uint256 auctionNo) external view returns (uint256);
+
+    /**
+     * Return total ETH bidded in selected auction
+     * @param auctionNo The number of the auction that the caller wish to view to view
+     */
+    function getTotalBiddedAmount(uint256 auctionNo)
+        external
+        view
+        returns (uint256);
+
+    /**
+     * Returns current auction number.
+     * Auctions starts from 0
      */
     function getAuctionNo() external view returns (uint256);
 
@@ -37,34 +60,15 @@ interface IAuctionV1 {
     function getAuctionState() external view returns (uint8);
 
     /**
-     * Returns current supply reserved by bidders
+     * Returns a user's bidded amount (excluding refunded amount) in the selected auction.
+     * @param auctionNo The number of the auction that the caller wish to view to view
      */
-    function getSupplyReserved() external view returns (uint256);
-
-    /**
-     * Returns selected auction's KCH token price in wei
-     * @param auctionNo The number of the auction caller wish to view
-     */
-    function getTokenPrice(uint256 auctionNo) external view returns (uint256);
-
-    /**
-     * Return total ETH bidded in selected auction
-     * @param auctionNo The number of the auction caller wish to view
-     */
-    function getTotalBiddedAmount(uint256 auctionNo)
+    function getUserBidAmount(address account, uint256 auctionNo)
         external
         view
         returns (uint256);
 
-    /**
-     * Returns a user's bidded amount in current auction
-     */
-    function getUserBidAmount(address account) external view returns (uint256);
-
-    /**
-     * Caller sends ETH to bid for KCH token
-     */
-    function insertBid() external payable;
+    // ===== Write methods =====
 
     /**
      * Owner of auction contract starts the auction
@@ -77,6 +81,11 @@ interface IAuctionV1 {
      * @return bool Boolean value of if auction should end
      */
     function checkIfAuctionShouldEnd() external returns (bool);
+
+    /**
+     * Caller sends ETH to bid for KCH token
+     */
+    function insertBid() external payable;
 
     /**
      * Caller withdraws KCH tokens and refunds if entitled

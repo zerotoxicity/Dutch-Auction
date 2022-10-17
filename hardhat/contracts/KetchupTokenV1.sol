@@ -43,7 +43,7 @@ contract KetchupTokenV1 is
 
     ///@inheritdoc IKetchupToken
     function getAvgTokenPrice() external view returns (uint256) {
-        if (address(this).balance == 0) return 0;
+        if (address(this).balance == 0 || totalSupply() == 0) return 0;
         return (address(this).balance * 1e18) / totalSupply();
     }
 }

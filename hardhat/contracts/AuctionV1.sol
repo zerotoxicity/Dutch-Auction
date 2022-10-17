@@ -25,7 +25,7 @@ contract AuctionV1 is
 
     ///Auction-related variables
     AuctionState private _currentAuctionState;
-    uint256 private _auctionNo;
+    uint256 private _auctionNo; //Auction starts from 0
     mapping(uint256 => uint256) private _endPrice;
     mapping(uint256 => uint256) private _auctionStartTime;
 
@@ -63,37 +63,6 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function startAuction() public onlyOwner {
-        require(
-            _currentAuctionState == AuctionState.CLOSED,
-            "Auction is ongoing."
-        );
-        IKetchupToken(_ketchupToken).fundAuction();
-        _auctionStartTime[_auctionNo] = block.timestamp;
-        _currentAuctionState = AuctionState.ONGOING;
-    }
-
-    ///@inheritdoc IAuctionV1
-    function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
-        if (
-            (getSupplyReserved() >= AUCTION_SUPPLY) ||
-            (block.timestamp >= _auctionStartTime[_auctionNo] + 20 minutes)
-        ) {
-            _endAuction();
-            emit ShouldAuctionEnd(true);
-            return true;
-        }
-
-        emit ShouldAuctionEnd(false);
-        return false;
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getAuctionState() external view returns (uint8) {
-        return uint8(_currentAuctionState);
-    }
-
-    ///@inheritdoc IAuctionV1
     function getSupplyReserved() public view returns (uint256) {
         uint256 totalBiddedAmount = getTotalBiddedAmount(_auctionNo);
         if (totalBiddedAmount == 0) return 0;
@@ -119,7 +88,62 @@ contract AuctionV1 is
         return _totalBidAmount[auctionNo];
     }
 
+    ///@inheritdoc IAuctionV1
+    function getAuctionNo() external view returns (uint256) {
+        return _auctionNo;
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getAuctionStartTime() external view returns (uint256) {
+        return _auctionStartTime[_auctionNo];
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getAuctionState() external view returns (uint8) {
+        return uint8(_currentAuctionState);
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getAuctionSupply() external pure returns (uint256) {
+        return AUCTION_SUPPLY;
+    }
+
+    ///@inheritdoc IAuctionV1
+    function getUserBidAmount(address account, uint256 auctionNo)
+        external
+        view
+        returns (uint256)
+    {
+        return bidders[auctionNo].get(account);
+    }
+
     function _authorizeUpgrade(address) internal override onlyOwner {}
+
+    ///@inheritdoc IAuctionV1
+    function startAuction() public onlyOwner {
+        require(
+            _currentAuctionState == AuctionState.CLOSED,
+            "Auction is ongoing."
+        );
+        IKetchupToken(_ketchupToken).fundAuction();
+        _auctionStartTime[_auctionNo] = block.timestamp;
+        _currentAuctionState = AuctionState.ONGOING;
+    }
+
+    ///@inheritdoc IAuctionV1
+    function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
+        if (
+            (getSupplyReserved() >= AUCTION_SUPPLY) ||
+            (block.timestamp >= _auctionStartTime[_auctionNo] + 20 minutes)
+        ) {
+            _endAuction();
+            emit ShouldAuctionEnd(true);
+            return true;
+        }
+
+        emit ShouldAuctionEnd(false);
+        return false;
+    }
 
     ///@inheritdoc IAuctionV1
     function insertBid() external payable auctionOngoing {
@@ -166,26 +190,6 @@ contract AuctionV1 is
         }
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
         emit Receiving(refundValue);
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getAuctionNo() external view returns (uint256) {
-        return _auctionNo;
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getAuctionStartTime() external view returns (uint256) {
-        return _auctionStartTime[_auctionNo];
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getAuctionSupply() external pure returns (uint256) {
-        return AUCTION_SUPPLY;
-    }
-
-    ///@inheritdoc IAuctionV1
-    function getUserBidAmount(address account) external view returns (uint256) {
-        return bidders[_auctionNo].get(account);
     }
 
     /**

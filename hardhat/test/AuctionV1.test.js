@@ -38,6 +38,42 @@ describe("📝 Auction Contract", function () {
     });
   });
 
+  describe(" User bid history", function () {
+    it("Return 0 if the user did not bid", async function () {
+      await auctionContract.startAuction();
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+      expect(
+        await auctionContract.getUserBidAmount(
+          accounts[0].address,
+          await auctionContract.getAuctionNo()
+        )
+      );
+    });
+    it("Returns caller's bidded value for the auctions", async function () {
+      //Auction no. 0
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: 100 });
+      await fastForwardTwentyMins();
+      await auctionContract.checkIfAuctionShouldEnd();
+
+      //Auction no. 1
+      await auctionContract.startAuction();
+      await auctionContract.insertBid({ value: AUCTION_SUPPLY });
+
+      expect(
+        await auctionContract.getUserBidAmount(accounts[0].address, 0)
+      ).to.be.equal(100);
+
+      expect(
+        await auctionContract.getUserBidAmount(
+          accounts[0].address,
+          (await auctionContract.getAuctionNo()) - 1
+        )
+      ).to.be.greaterThan(ethers.utils.parseEther("99"));
+    });
+  });
+
   describe("👨 Start auction", function () {
     it("Reverts if not started by owner", async function () {
       await expect(auctionContract.connect(accounts[1]).startAuction()).to.be
@@ -70,7 +106,10 @@ describe("📝 Auction Contract", function () {
 
       //User only bidded in first auction, expect zero bid value in second auction
       expect(
-        await auctionContract.getUserBidAmount(deployer.address)
+        await auctionContract.getUserBidAmount(
+          deployer.address,
+          await auctionContract.getAuctionNo()
+        )
       ).to.be.equal(0);
     });
   });
