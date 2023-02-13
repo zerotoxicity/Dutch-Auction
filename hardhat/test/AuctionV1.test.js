@@ -48,7 +48,7 @@ describe("📝 Auction Contract", function () {
           accounts[0].address,
           await auctionContract.getAuctionNo()
         )
-      );
+      ).to.be.equal(0);
     });
     it("Returns caller's bidded value for the auctions", async function () {
       //Auction no. 0

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_frontend/screen/admin/controller.dart';
 import 'package:flutter_frontend/screen/admin/screen.dart';
 import 'package:flutter_frontend/screen/auction/controller.dart';
 import 'package:flutter_frontend/screen/auction/screen.dart';
@@ -8,7 +9,6 @@ import 'package:flutter_frontend/screen/dashboard/controller.dart';
 import 'package:flutter_frontend/web3_controller.dart';
 import 'package:get/get.dart';
 
-import '../../helper.dart';
 import '../../widget.dart';
 
 /// Show information about token
@@ -16,6 +16,9 @@ class DashboardScreen extends StatelessWidget {
   DashboardScreen({Key? key}) : super(key: key);
   final Web3Controller web3Controller = Get.find<Web3Controller>();
   final DashboardController controller = Get.put(DashboardController());
+
+  final AuctionController auctionController = Get.put(AuctionController());
+  final AdminController adminController = Get.put(AdminController());
 
   static const List<Widget> tabs = [
     Tab(
@@ -30,69 +33,61 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: tabs.length,
-      child: Scaffold(
-        backgroundColor: Colors.blue[50],
-        floatingActionButton: FloatingActionButton(
-          onPressed: _floatingActionHandler,
-          child: const Icon(Icons.add),
-          tooltip: "Add new Auction Contract",
-        ),
-        appBar: AppBar(
-          bottom: const TabBar(tabs: tabs),
-          title: const Text("Ketchup ICO"),
-          actions: [
-            Obx(() => Center(
-                child: Text(
-                    "Current Chain: ${web3Controller.currentChain.value}"))),
-            const SizedBox(width: 8),
-            FutureBuilder<BigInt>(
-                future: web3Controller.getNativeTokenBalance(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const CircularProgressIndicator.adaptive();
-                  }
-                  if (snapshot.hasData) {
-                    return Center(
-                        child: Text("Eth: ${bigIntToString(snapshot.data!)}"));
-                  }
-                  return Container();
+    return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        onPressed: _floatingActionHandler,
+        child: const Icon(Icons.add),
+        tooltip: "Add new Auction Contract",
+      ),
+      appBar: AppBar(
+        title: const Text("Ketchup ICO"),
+        actions: [
+          Obx(() => Center(
+              child:
+                  Text("Current Chain: ${web3Controller.currentChain.value}"))),
+          const SizedBox(width: 8),
+          Center(
+            child: Obx(() => Text("ETH: ${web3Controller.etherBalance}")),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: "Refresh Auction",
+            onPressed: () async =>
+                await auctionController.refreshAuctionState(),
+          ),
+          IconButton(
+            onPressed: () => showDialog(
+                context: context,
+                builder: (context) {
+                  return SimpleDialog(
+                    children: [
+                      textLayout("Ketchup Balance (KCH): ",
+                          auctionController.userKCHBalance, onTap: () {
+                        auctionController.updateUserKCHBalance();
+                      })
+                    ],
+                  );
                 }),
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              tooltip: "Refresh Auction",
-              onPressed: () async {
-                await controller.fetchLatestAuction();
-                await controller.checkAuctionShouldEnd();
-              },
-            )
-          ],
-        ),
-        body: TabBarView(
-          children: [
-            Container(
-              color: Colors.amber[50],
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 80),
-              child: ListView(
-                children: [
-                  /// > About Token
-                  tokenSupplyWidget,
-                  averagePriceWidget,
-                  // > Current Auction
-                  auctionStateWidget,
-                  auctionNoWidget,
-                  actionButtonWidget,
-                  auctionTokenSupplyWidget,
-                  timestampWidget,
-                  countdownWidget,
-                  // > About User
-                  currentBidPriceWidget,
-                  userKCHBalanceWidget,
-                ],
-              ),
+            icon: const Icon(Icons.account_balance_wallet),
+            tooltip: "KCH balance",
+          )
+        ],
+      ),
+      body: DefaultTabController(
+        length: tabs.length,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            tokenSupplyWidget,
+            averagePriceWidget,
+            const TabBar(
+              tabs: tabs,
+              labelColor: Colors.blueAccent,
+              unselectedLabelColor: Colors.blue,
             ),
-            AdminScreen()
+            Flexible(
+              child: TabBarView(children: [AuctionScreen(), AdminScreen()]),
+            )
           ],
         ),
       ),
@@ -123,11 +118,20 @@ class DashboardScreen extends StatelessWidget {
               ElevatedButton(
                 child: const Text("Submit"),
                 onPressed: () async {
-                  await controller.updateAddress();
+                  final _aa = controller.auctionAddressEditingController.text;
+                  final _ta = controller.tokenAddressEditingController.text;
+                  auctionController.updateContractAddress(
+                    newAuctionAddress: _aa,
+                    newTokenAddress: _ta,
+                  );
+                  adminController.updateContractAddress(
+                    newAuctionAddress: _aa,
+                    newTokenAddress: _ta,
+                  );
                   final snackbar = GetSnackBar(
                     title: "Update new contract",
                     message:
-                        "Auction address: ${controller.auctionAddress} \n Token address: ${controller.tokenAddress}",
+                        "Auction address: ${auctionController.auctionAddress} \n Token address: ${auctionController.tokenAddress}",
                     duration: const Duration(seconds: 3),
                   );
                   Get.back();
@@ -172,160 +176,12 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget get actionButtonWidget => Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Obx(
-            () => OutlinedButton(
-              child: const Text("Submit Bid"),
-              onPressed: controller.auctionState.value == 0
-                  ? () async => await showDialog(
-                        context: Get.context!,
-                        builder: (context) => submitBidWdiget,
-                      )
-                  : null,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Obx(
-            () => OutlinedButton(
-              child: const Text("Withdraw KCH token"),
-              onPressed: controller.auctionState.value == 1
-                  ? () async {
-                      if (controller.auctionState.value != 0) {
-                        // Attempt to withdraw tokens
-                        await controller.withdrawTokens();
-                      } else {
-                        const GetSnackBar(
-                          title: "Withdraw Failed",
-                          message: "Auction has not ended. Click to refresh",
-                          duration: Duration(seconds: 3),
-                        ).show();
-                      }
-                      // Withdraw token from auction address
-                    }
-                  : null,
-            ),
-          )
-        ],
-      );
-
-  Widget get userKCHBalanceWidget => textLayout(
-        "Ketchup Balance (KCH): ",
-        controller.userKCHBalance,
-      );
-
-  Widget get auctionTokenSupplyWidget => textLayout(
-        "Auction Token Supply: ",
-        controller.auctionTokenSupply,
-      );
-
-  Widget get timestampWidget => textLayout(
-        "Start time: ",
-        controller.startTime,
-      );
-
-  Widget get countdownWidget => textLayout(
-        "Time left: ",
-        controller.timeleft,
-      );
-  Widget get currentBidPriceWidget => textLayout(
-        "Current Bid Price (ETH):",
-        controller.currentBidPrice,
-      );
-
-  Widget get auctionNoWidget => Container(
-        padding: const EdgeInsets.all(8),
-        color: Colors.green[50],
-        width: Get.width * 0.6,
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Obx(
-            () => SelectableText(
-                "Current Auction No: ${controller.auctionNo.value}"),
-          ),
-          IconButton(
-            onPressed: () {
-              Get.put(PastAuctionController());
-              Get.to(
-                PastAuction(),
-                fullscreenDialog: false,
-              );
-            },
-            icon: const Icon(Icons.history),
-            tooltip: "Past Auctions",
-          )
-        ]),
-      );
-
-  Widget get auctionStateWidget => Obx((() {
-        int _state = controller.auctionState.value;
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          alignment: Alignment.center,
-          color: _auctionStateColor(_state),
-          child: SelectableText(kAuctionState[_state]!),
-        );
-      }));
-
-  Color _auctionStateColor(int state) {
-    if (state == 0) return Colors.greenAccent;
-    if (state == 1) return Colors.blue;
-    if (state == 2) return Colors.lightBlue;
-    return Colors.grey;
-  }
-
   Widget get tokenSupplyWidget => textLayout(
         "Total Supply: ",
-        controller.tokenTotalSupply,
+        auctionController.tokenTotalSupply,
       );
   Widget get averagePriceWidget => textLayout(
-        "Average Price: ",
-        controller.tokenPrice,
-      );
-
-  Widget get submitBidWdiget => AlertDialog(
-        title: const Text("Bid Amount"),
-        actions: [
-          ElevatedButton(
-            onPressed: controller.auctionState.value == 0 ||
-                    controller.auctionAddressEditingController.text.isNotEmpty
-                ? () async {
-                    final bidAmount =
-                        (await controller.submitBid()).toDouble() / 1e18;
-                    final sb = GetSnackBar(
-                      title: "Bid Successful",
-                      message:
-                          "Amount: ${bidAmount.toPrecision(4).toString()} ETH",
-                      duration: const Duration(seconds: 3),
-                    );
-                    Get.back();
-                    sb.show();
-                  }
-                : null,
-            child: const Text("Submit"),
-          ),
-        ],
-        content: Obx(
-          () => TextField(
-            enabled: controller.auctionState.value == 0,
-            decoration: const InputDecoration(
-                border: OutlineInputBorder(), hintText: "in ether"),
-            controller: controller.bidAmountEditingController,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-              TextInputFormatter.withFunction((oldValue, newValue) {
-                try {
-                  final text = newValue.text;
-                  if (text.isNotEmpty) double.parse(text);
-                  return newValue;
-                } catch (e) {
-                  print("input error: ${e.toString()}");
-                }
-                return oldValue;
-              }),
-            ],
-          ),
-        ),
+        "Average Price: (ETH/KCH)",
+        auctionController.tokenPrice,
       );
 }

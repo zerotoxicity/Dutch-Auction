@@ -16,6 +16,16 @@ interface IAuctionV1 {
     // ===== Read methods ====
 
     /**
+     * Returns auction's supply
+     */
+    function getAuctionSupply() external pure returns (uint256);
+
+    /**
+     * Return auction's duration
+     */
+    function viewAuctionDuration() external pure returns (uint256);
+
+    /**
      * Returns current supply reserved by bidders
      */
     function getSupplyReserved() external view returns (uint256);
@@ -63,11 +73,6 @@ interface IAuctionV1 {
         returns (uint256);
 
     /**
-     * Returns auction's supply
-     */
-    function getAuctionSupply() external view returns (uint256);
-
-    /**
      * Returns auction current state
      * 0 - ONGOING
      * 1 - CLOSED
@@ -107,9 +112,4 @@ interface IAuctionV1 {
      * Caller withdraws KCH tokens and refunds if entitled
      */
     function withdraw() external;
-
-    /**
-     * View duration of the auction
-     */
-    function viewAuctionDuration() view returns (uint256);
 }

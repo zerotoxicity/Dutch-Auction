@@ -1,10 +1,13 @@
 // Admin Controller for Web3
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_frontend/abi/iauction_interface.dart';
 import 'package:flutter_frontend/abi/ikch_token_interface.dart';
 import 'package:flutter_frontend/helper.dart';
-import 'package:flutter_frontend/screen/dashboard/controller.dart';
+import 'package:flutter_frontend/screen/auction/controller.dart';
+
 import 'package:flutter_web3/flutter_web3.dart';
 import "package:flutter_web3/ethers.dart";
 import 'package:get/get.dart';
@@ -15,31 +18,37 @@ class AdminController extends GetxController {
   Rx<String> walletAddress = "".obs;
   Rx<String> etherBalance = Rx("0");
   Rx<String> kchBalance = Rx("0");
+  Rx<int> auctionDuration = Rx<int>(0);
+  Rx<String> kchSupply = Rx("0");
+  Rx<int> auctionStartTime = Rx(-1);
 
   Wallet? adminWallet;
   IAuctionInterface? auctionContract;
-  ContractERC20? tokenContract;
+  IKCHToken? tokenContract;
 
   late IKCHToken kchToken;
 
   TextEditingController privateKeyEditingController = TextEditingController();
   TextEditingController contractEditingController = TextEditingController();
+  Timer? backgroundTimer;
 
   @override
   void onReady() async {
     super.onReady();
-    // once(adminWallet.obs, (Wallet? wallet) {
-    //   if (wallet != null) {
-    //     initTokenContract();
-    //     initAuctionContract();
-    //   }
-    // }, condition: adminWallet != null);
     await addWallet(kPrivateKey);
     initAuctionContract();
     initTokenContract();
-    fetchEtherBalance();
-    fetchKCHBalance();
-    await initKCHTokenContract();
+    initKCHTokenContract();
+    await fetchEtherBalance();
+    await fetchKCHBalance();
+
+    startBackgroundAction();
+  }
+
+  @override
+  void onClose() {
+    super.onClose();
+    backgroundTimer?.cancel();
   }
 
   Future<void> addWallet(String privateKey) async {
@@ -51,28 +60,22 @@ class AdminController extends GetxController {
     isLogin.value = true;
   }
 
-  Future<void> deployContract() async {}
-
-  Future<void> initKCHTokenContract() async {
-    final _tokenAddress = Get.find<DashboardController>().tokenAddress;
+  void initKCHTokenContract() async {
+    final _tokenAddress = Get.find<AuctionController>().tokenAddress;
     kchToken = IKCHToken(_tokenAddress, adminWallet);
-    final totalSupply = await kchToken.totalSupply();
-    print("max supply from IKCHToken: ${bigIntToString(totalSupply)}");
   }
 
   void initAuctionContract() {
-    print("init auction contract");
-    final _auctionAddress = Get.find<DashboardController>().auctionAddress;
+    final _auctionAddress = Get.find<AuctionController>().auctionAddress;
 
     auctionContract = IAuctionInterface(_auctionAddress, adminWallet);
-    print("Auction Contract Address: $_auctionAddress");
+    print("auction contract address: $_auctionAddress");
   }
 
   void initTokenContract() {
-    print("init token contract");
-    final _tokenAddress = Get.find<DashboardController>().tokenAddress;
+    final _tokenAddress = Get.find<AuctionController>().tokenAddress;
     print("token contract address: $_tokenAddress");
-    tokenContract = ContractERC20(_tokenAddress, adminWallet);
+    tokenContract = IKCHToken(_tokenAddress, provider);
   }
 
   Future<void> fetchEtherBalance() async {
@@ -87,10 +90,45 @@ class AdminController extends GetxController {
     kchBalance.value = bigIntToString(kch);
   }
 
+  Future<void> fetchTokenSupply() async {
+    final _totalSupply = await kchToken.totalSupply();
+    kchSupply.value = bigIntToString(_totalSupply);
+  }
+
   Future<String?> startAuction() async {
     if (auctionContract == null) return null;
+    print("start auction");
     final result = await auctionContract!.startAuction();
-    print(result.hash);
-    return result.hash;
+    print("await block confirmation...");
+    final receipt = await result.wait(1);
+    print("$kConfirmationBlocks blocks confirmed");
+    return receipt.transactionHash;
+  }
+
+  /// Background task to update active auction state periodically
+  void startBackgroundAction() {
+    print("AdminController: Start background action");
+    backgroundTimer = Timer.periodic(
+        Duration(seconds: (kBackgroundPeriod * 1.5).ceil()), (timer) async {
+      fetchEtherBalance();
+      final _state = await auctionContract?.getAuctionState();
+      if (_state == 0) {
+        auctionContract?.checkIfAuctionShouldEnd();
+      }
+    });
+  }
+
+  void updateContractAddress({
+    String? newTokenAddress,
+    String? newAuctionAddress,
+  }) async {
+    if (newTokenAddress != null) {
+      newTokenAddress;
+      tokenContract!.updateContract(newTokenAddress);
+    }
+
+    if (newAuctionAddress != null) {
+      auctionContract!.updateContract(newAuctionAddress);
+    }
   }
 }

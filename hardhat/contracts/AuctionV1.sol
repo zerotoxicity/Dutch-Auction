@@ -66,6 +66,16 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
+    function getAuctionSupply() external pure returns (uint256) {
+        return AUCTION_SUPPLY;
+    }
+
+    ///@inheritdoc IAuctionV1
+    function viewAuctionDuration() public pure returns (uint) {
+        return AUCTION_DURATION;
+    }
+
+    ///@inheritdoc IAuctionV1
     function getSupplyReserved() public view returns (uint256) {
         uint256 totalBiddedAmount = getTotalBiddedAmount(_auctionNo);
         if (totalBiddedAmount == 0) return 0;
@@ -120,11 +130,6 @@ contract AuctionV1 is
     }
 
     ///@inheritdoc IAuctionV1
-    function getAuctionSupply() external pure returns (uint256) {
-        return AUCTION_SUPPLY;
-    }
-
-    ///@inheritdoc IAuctionV1
     function getUserBidAmount(address account, uint256 auctionNo)
         external
         view
@@ -150,7 +155,8 @@ contract AuctionV1 is
     function checkIfAuctionShouldEnd() public auctionOngoing returns (bool) {
         if (
             (getSupplyReserved() >= AUCTION_SUPPLY) ||
-            (block.timestamp >= _auctionStartTime[_auctionNo] + 5 minutes)
+            (block.timestamp >=
+                _auctionStartTime[_auctionNo] + AUCTION_DURATION)
         ) {
             _endAuction();
             emit ShouldAuctionEnd(true);
@@ -181,7 +187,6 @@ contract AuctionV1 is
             _currentAuctionState == AuctionState.CLOSED,
             "Auction is not closed"
         );
-
         uint256 ethBidded;
         for (uint256 i = 0; i < _auctionNo; i++) {
             ethBidded += bidders[i].get(msg.sender);
@@ -190,13 +195,6 @@ contract AuctionV1 is
             ((ethBidded > 0)) || (_refunds[msg.sender] > 0),
             "Did not bid/Withdrawn"
         );
-        uint256 refundValue = _refunds[msg.sender];
-        if (refundValue != 0) {
-            _refunds[msg.sender] = 0;
-            _refundAmount -= refundValue;
-            (bool sent, ) = msg.sender.call{value: refundValue}("");
-            require(sent, "Failed to withdraw");
-        }
 
         uint256 numOfKetchup;
         for (uint256 i = 0; i < _auctionNo; i++) {
@@ -205,7 +203,9 @@ contract AuctionV1 is
                 getTokenPrice(i);
             bidders[i].remove(msg.sender);
         }
+        //Put transfer at the end after states change
         IERC20(_ketchupToken).transfer(msg.sender, numOfKetchup);
+        uint256 refundValue = _refundEthToAcc(msg.sender);
         emit Receiving(refundValue);
     }
 
@@ -239,6 +239,21 @@ contract AuctionV1 is
             require(sent, "Failed to send ETH");
         }
         _auctionNo++;
+    }
+
+    /**
+     * Send ETH to account if they have overbidded
+     * @param account The account that is withdrawing
+     */
+    function _refundEthToAcc(address account) private returns (uint256) {
+        uint256 refundValue = _refunds[account];
+        if (refundValue != 0) {
+            _refunds[account] = 0;
+            _refundAmount -= refundValue;
+            (bool sent, ) = account.call{value: refundValue}("");
+            require(sent, "Failed to withdraw");
+        }
+        return refundValue;
     }
 
     /**

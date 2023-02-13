@@ -1,5 +1,6 @@
 import 'dart:html';
 
+import 'package:flutter_frontend/helper.dart';
 import 'package:get/get.dart';
 import "package:flutter_web3/flutter_web3.dart";
 
@@ -10,12 +11,12 @@ class Web3Controller extends GetxController {
 
     if (isEnabled.value) {
       ethereum!.onAccountsChanged((accounts) {
-        print("Change in account: $accounts");
+        debugPrint("Change in account: $accounts");
         currentAddress.value = accounts[0];
         window.location.reload();
       });
       ethereum!.onChainChanged((chainId) {
-        print("Change in chainId: $chainId");
+        debugPrint("Change in chainId: $chainId");
         setChain(chainId);
         window.location.reload();
       });
@@ -24,10 +25,18 @@ class Web3Controller extends GetxController {
         update();
       });
 
+      ethereum!.onMessage((type, data) {});
+
       ethereum!.on("message", (message) {
-        print(dartify(message));
+        debugPrint("<message listener>: ${dartify(message)}");
       });
     }
+  }
+
+  @override
+  void onReady() async {
+    super.onReady();
+    await getNativeTokenBalance();
   }
 
   /// Getters
@@ -39,6 +48,7 @@ class Web3Controller extends GetxController {
   Web3Provider? get getProvider => provider;
 
   RxString currentAddress = RxString("");
+  Rx<String> etherBalance = Rx("NIL");
   RxInt currentChain = RxInt(-1);
   RxInt operatingChain = RxInt(5);
 
@@ -47,9 +57,10 @@ class Web3Controller extends GetxController {
   }
 
   // Read-only functions
-  Future<BigInt> getNativeTokenBalance() async {
+  Future<void> getNativeTokenBalance() async {
     BigInt _result = await getNativeTokenBalanceOf(currentAddress.value);
-    return _result;
+    debugPrint("ether balance: $_result");
+    etherBalance.value = bigIntToString(_result);
   }
 
   Future<BigInt> getNativeTokenBalanceOf(String address) async {
@@ -60,7 +71,7 @@ class Web3Controller extends GetxController {
       }
       return BigInt.zero;
     } catch (error) {
-      print(error);
+      debugPrint(error.toString());
       return BigInt.zero;
     }
   }
@@ -68,9 +79,10 @@ class Web3Controller extends GetxController {
   Future<void> connect() async {
     if (isEnabled.value) {
       final accounts = await ethereum!.requestAccount();
-      print("Requesting accounts");
+      debugPrint("Requesting accounts");
       if (accounts.isNotEmpty) {
         currentAddress.value = accounts[0];
+        await getNativeTokenBalance();
       }
       currentChain.value = await ethereum!.getChainId();
     }

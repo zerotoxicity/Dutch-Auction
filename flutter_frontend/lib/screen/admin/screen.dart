@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_frontend/helper.dart';
 import 'package:flutter_frontend/screen/admin/controller.dart';
+import 'package:flutter_frontend/screen/auction/controller.dart';
 import 'package:flutter_frontend/widget.dart';
 import 'package:get/get.dart';
 
 class AdminScreen extends StatelessWidget {
   AdminScreen({Key? key}) : super(key: key);
 
-  final controller = Get.put(AdminController());
+  final controller = Get.find<AdminController>();
+
+  final _textStyle = const TextStyle(fontWeight: FontWeight.w600);
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
+    return SingleChildScrollView(
       child: Center(
         child: Obx(() {
           if (!controller.isLogin.value) {
@@ -45,15 +48,20 @@ class AdminScreen extends StatelessWidget {
               ],
             );
           }
-          return Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
+          return Wrap(
+            // mainAxisAlignment: MainAxisAlignment.center,
+            // mainAxisSize: MainAxisSize.max,
+            // spacing: ,
+            alignment: WrapAlignment.center,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runAlignment: WrapAlignment.center,
+            spacing: 20,
             children: [
+              kchBalanceWidget(context),
               textLayout("Wallet Address: ", controller.walletAddress),
-              textLayout("KCH Balance: ", controller.kchBalance),
               textLayout("ETH Balance: ", controller.etherBalance),
-              startAuctionWidget,
-              burnTokenWidget(context),
+              auctiontokenAddress(),
+              startAuctionWidget(context),
             ],
           );
         }),
@@ -61,49 +69,106 @@ class AdminScreen extends StatelessWidget {
     );
   }
 
-  Widget burnTokenWidget(BuildContext context) {
-    return OutlinedButton(
-      onPressed: () {
-        showDialog(
-            context: context,
-            builder: (context) {
-              final textController = TextEditingController();
-              return AlertDialog(
-                title: const Text("Enter Amount: "),
-                content: TextField(
-                  controller: textController,
-                  keyboardType: TextInputType.number,
-                ),
-                actions: [
-                  ElevatedButton(
-                    onPressed: () async {
-                      await controller.kchToken.burnRemainingToken(
-                          BigInt.from(int.parse(textController.value.text)));
-                      Get.back();
-                    },
-                    child: const Text("Burn"),
-                  )
-                ],
-              );
-            });
-      },
-      child: const Text("Burn Tokens"),
+  Widget kchBalanceWidget(BuildContext context) {
+    final TextEditingController textEditingController = TextEditingController();
+    return Container(
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        children: [
+          Expanded(
+              child: TextField(
+            controller: textEditingController,
+            decoration: const InputDecoration(
+              hintText: "Enter Address",
+            ),
+          )),
+          ElevatedButton(
+            onPressed: () {
+              showKCHBalance(textEditingController.value.text, context);
+              textEditingController.clear();
+            },
+            child: const Text("Search"),
+          )
+        ],
+      ),
     );
   }
 
-  Widget get startAuctionWidget => ElevatedButton(
-        onPressed: () async {
-          final hash = await controller.startAuction();
-          if (hash != null) {
-            GetSnackBar(
-              title: "Success",
-              message: "Auction Started. Transaction hash: $hash",
-              duration: const Duration(seconds: 2),
-            ).show();
-          } else {
-            await Get.snackbar("Error", "Start auction failed").show();
-          }
-        },
-        child: const Text("Start Auction"),
+  Widget auctiontokenAddress() => Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Flexible(
+              child: SelectableText.rich(
+                TextSpan(
+                    text: "Token Address: ",
+                    children: [
+                      TextSpan(text: controller.tokenContract?.contract.address)
+                    ],
+                    style: _textStyle),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: SelectableText.rich(
+                TextSpan(
+                    text: "Auction Address: ",
+                    children: [
+                      TextSpan(
+                          text: controller.auctionContract?.contract.address)
+                    ],
+                    style: _textStyle),
+              ),
+            ),
+          ],
+        ),
       );
+
+  Widget startAuctionWidget(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () async {
+        final hash = await controller.startAuction();
+        controller.startBackgroundAction();
+
+        if (hash != null) {
+          await Get.find<AuctionController>().startAuction();
+          GetSnackBar(
+            title: "Success",
+            message: "Auction Started. Transaction hash: $hash",
+            duration: const Duration(seconds: 2),
+          ).show();
+        } else {
+          const GetSnackBar(
+            title: "Action Unsuccessful",
+            message: "Unable to start auction. Try redeploying blockchain",
+            duration: Duration(seconds: 2),
+          ).show();
+        }
+      },
+      child: const Text("Start Auction"),
+    );
+  }
+}
+
+/// Pop up dialog that shows the KCH balance of given address
+Future<void> showKCHBalance(String address, BuildContext context) async {
+  final controller = Get.find<AdminController>();
+  final balance = await controller.tokenContract!.balanceOf(address);
+
+  await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          title: Text("Address: $address "),
+          content: Text.rich(
+            TextSpan(
+                text: "Balance: ",
+                style: const TextStyle(fontWeight: FontWeight.w600),
+                children: [TextSpan(text: bigIntToString(balance) + " KCH")]),
+            textAlign: TextAlign.center,
+          ),
+        );
+      });
 }

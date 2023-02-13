@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -8,14 +9,19 @@ Widget textLayout(
   Rx rxBody, {
   TextStyle? headingStyle,
   TextStyle? bodyStyle,
+  VoidCallback? onTap,
 }) {
   return Container(
     margin: const EdgeInsets.all(8),
     padding: const EdgeInsets.all(8),
     child: Column(
       children: [
-        SelectableText(
-          title,
+        SelectableText.rich(
+          TextSpan(
+            text: title,
+            recognizer:
+                onTap != null ? (TapGestureRecognizer()..onTap = onTap) : null,
+          ),
           style: headingStyle ?? headingTextStyle,
         ),
         Obx(
